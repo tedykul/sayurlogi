@@ -1,31 +1,24 @@
-'use client'
+import { Suspense } from "react";
+import { HomeClient } from "./home-client";
 
-export default function Home() {
+// ============================================================
+// Server component — wraps HomeClient in Suspense because
+// HomeClient uses useSearchParams() (requires Suspense boundary
+// in Next.js 16 App Router for static rendering).
+// ============================================================
+
+export const dynamic = "force-dynamic";
+
+export default function HomePage() {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '2rem',
-      padding: '1rem'
-    }}>
-      <div style={{
-        position: 'relative',
-        width: '6rem',
-        height: '6rem'
-      }}>
-        <img
-          src="/logo.svg"
-          alt="Z.ai Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
-    </div>
-  )
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Memuat...</div>
+        </div>
+      }
+    >
+      <HomeClient />
+    </Suspense>
+  );
 }
