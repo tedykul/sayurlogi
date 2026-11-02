@@ -1,0 +1,11 @@
+{
+  "name": "erpnext-sync",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0"
+  }
+}

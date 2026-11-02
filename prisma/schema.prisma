@@ -41,21 +41,59 @@ model Post {
 }
 
 // ============================================================
-// Product — minimal storefront catalog (demo for coupon flow).
+// Product — storefront catalog.
+// ============================================================
+// Sources:
+//   1. Seed (demo products) — itemCode is null, published=true.
+//   2. ERPNext sync — itemCode set (unique), erpSyncedAt tracks
+//      last sync. Upsert keyed by itemCode so re-sync updates in
+//      place without creating duplicates.
+//
+// ERPNext-sourced fields (overwritten on sync): name, description,
+// category, price, unit, stock, image, emoji, oldPrice.
+// image is rewritten to "/api/erp-image/..." proxy path so the
+// storefront can serve ERPNext-hosted photos same-origin.
 // ============================================================
 
 model Product {
   id          String   @id @default(cuid())
+  // ERPNext item_code (unique when set). Null for seed/demo products.
+  itemCode    String?  @unique
   name        String
   description String   @default("")
   price       Int      // IDR, no decimals (matches SayurLogi pattern)
+  oldPrice    Int?     // original price (for crossed-out display)
   category    String   @default("Umum")
+  unit        String   @default("pcs") // ERPNext stock_uom
   image       String?
+  emoji       String?  // fallback display when no image
   stock       Int      @default(0)
+  published   Boolean  @default(true)
+  erpSyncedAt DateTime? // null = local-only; set when synced from ERPNext
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([category])
+  @@index([published])
+  @@index([erpSyncedAt])
+}
+
+// ============================================================
+// IntegrationConfig — DB-backed integration settings.
+// ============================================================
+// Stores ERPNext (and future: Midtrans, WhatsApp) connection
+// settings so they can be edited via admin UI without restart.
+// Priority: DB > env vars > empty.
+// Secrets (isSecret=true) encrypted with AES-256-CBC (see
+// lib/integration-config.ts). Keyed by string key (e.g.
+// "erpnext_url", "erpnext_api_secret").
+// ============================================================
+
+model IntegrationConfig {
+  key       String   @id
+  value     String
+  isSecret  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -74,6 +112,9 @@ model Order {
   customerPhone   String
   customerAddress String   @default("")
   couponCode      String?  // snapshot of applied coupon code
+  // ERPNext Sales Order name (e.g. "SO-2026-00001") when order was
+  // pushed to ERPNext. Null = local-only (mock mode or sync failed).
+  erpOrderName    String?
   status          String   @default("pending") // pending|paid|cancelled
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -81,6 +122,7 @@ model Order {
   @@index([couponCode])
   @@index([status])
   @@index([createdAt])
+  @@index([erpOrderName])
 }
 
 // ============================================================
