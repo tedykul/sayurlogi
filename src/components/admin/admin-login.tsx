@@ -52,7 +52,8 @@ export function AdminLogin({ open, onclose }: AdminLoginProps) {
       const data = (await res.json()) as { coupons: Coupon[] };
       setStoredToken(token.trim());
       toast.success(`Admin login berhasil (${data.coupons.length} kupon dimuat)`);
-      onclose();
+      // Don't call onclose — let AdminOverlay auto-switch to AdminDashboard
+      // (token is now truthy + isOpen still true → dashboard renders)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Login gagal");
     } finally {
