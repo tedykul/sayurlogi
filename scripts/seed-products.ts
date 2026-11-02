@@ -1,51 +1,78 @@
 import { db } from "@/lib/db";
+import { MOCK_PRODUCTS } from "@/lib/mock-data";
 
 // ============================================================
-// seed-products — idempotent insert of demo products.
+// seed-products — idempotent upsert of demo products.
 // Run: bun run scripts/seed-products.ts
 // ============================================================
-
-const DEMO_PRODUCTS = [
-  { name: "Bayam Hijau Segar", description: "1 ikat, dipetik pagi", price: 8000, category: "Sayuran", stock: 50 },
-  { name: "Tomat Merah", description: "500 gram", price: 12000, category: "Sayuran", stock: 40 },
-  { name: "Wortel Lokal", description: "500 gram", price: 10000, category: "Sayuran", stock: 35 },
-  { name: "Apel Fuji", description: "1 kg", price: 45000, category: "Buah", stock: 25 },
-  { name: "Pisang Cavendish", description: "1 sisir", price: 28000, category: "Buah", stock: 30 },
-  { name: "Jeruk Manis", description: "1 kg", price: 32000, category: "Buah", stock: 28 },
-  { name: "Bawang Merah", description: "500 gram", price: 18000, category: "Sayuran", stock: 45 },
-  { name: "Cabai Merah Keriting", description: "250 gram", price: 22000, category: "Sayuran", stock: 20 },
-  { name: "Mangga Harum Manis", description: "1 kg", price: 38000, category: "Buah", stock: 22 },
-  { name: "Brokoli Hijau", description: "1 bunga", price: 15000, category: "Sayuran", stock: 18 },
-  { name: "Anggur Red Globe", description: "500 gram", price: 55000, category: "Buah", stock: 15 },
-  { name: "Jamur Tiram", description: "250 gram", price: 13000, category: "Sayuran", stock: 30 },
-];
+// Uses MOCK_PRODUCTS (lib/mock-data.ts) as the source so the
+// seeded catalog has ERPNext-compatible fields (itemCode, emoji,
+// oldPrice, unit, published).
+//
+// Match strategy (avoids duplicates + preserves product.id so
+// existing carts keep working):
+//   1. findFirst by itemCode — re-seed updates in place.
+//   2. else findFirst by name — enriches legacy seed rows (which
+//      had no itemCode) without creating a duplicate.
+//   3. else create new row.
+//
+// Seeded products are NOT marked ERPNext-synced (erpSyncedAt
+// stays null) so they show as "local" source until a real
+// ERPNext sync runs.
+// ============================================================
 
 async function main() {
-  console.log("🌱 Seeding products...");
+  console.log("🌱 Seeding products from MOCK_PRODUCTS...");
   let created = 0;
-  let skipped = 0;
+  let updated = 0;
 
-  for (const p of DEMO_PRODUCTS) {
-    const existing = await db.product.findFirst({ where: { name: p.name } });
+  for (const p of MOCK_PRODUCTS) {
+    if (!p.itemCode) continue;
+
+    // Match by itemCode first, then by name (legacy rows).
+    const existing =
+      (await db.product.findUnique({ where: { itemCode: p.itemCode } })) ??
+      (await db.product.findFirst({ where: { name: p.name } }));
+
     if (existing) {
-      console.log(`   ⏭️  ${p.name} sudah ada, skip`);
-      skipped++;
-      continue;
+      await db.product.update({
+        where: { id: existing.id },
+        data: {
+          itemCode: p.itemCode,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          oldPrice: p.oldPrice,
+          category: p.category,
+          unit: p.unit,
+          emoji: p.emoji,
+          stock: p.stock,
+          published: true,
+        },
+      });
+      updated++;
+      console.log(`   ♻️  ${p.itemCode} — ${p.name} di-update`);
+    } else {
+      await db.product.create({
+        data: {
+          itemCode: p.itemCode,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          oldPrice: p.oldPrice,
+          category: p.category,
+          unit: p.unit,
+          emoji: p.emoji,
+          stock: p.stock,
+          published: true,
+        },
+      });
+      created++;
+      console.log(`   ✅ ${p.itemCode} — ${p.name} dibuat`);
     }
-    await db.product.create({
-      data: {
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        category: p.category,
-        stock: p.stock,
-      },
-    });
-    console.log(`   ✅ ${p.name} dibuat`);
-    created++;
   }
 
-  console.log(`\n✨ Selesai: ${created} dibuat, ${skipped} dilewati.`);
+  console.log(`\n✨ Selesai: ${created} dibuat, ${updated} di-update.`);
 }
 
 main()
@@ -56,3 +83,4 @@ main()
   .finally(async () => {
     await db.$disconnect();
   });
+

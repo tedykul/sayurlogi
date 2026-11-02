@@ -4,12 +4,19 @@
 
 export interface Product {
   id: string;
+  // ERPNext item_code (null for seed/demo products).
+  itemCode: string | null;
   name: string;
   description: string;
   price: number; // IDR
+  oldPrice: number | null; // original price (crossed-out display)
   category: string;
+  unit: string; // ERPNext stock_uom (e.g. "pcs", "kg")
   image: string | null;
+  emoji: string | null; // fallback display when no image
   stock: number;
+  published: boolean;
+  erpSyncedAt: string | null; // ISO; null = local-only (not from ERPNext)
   createdAt: string;
   updatedAt: string;
 }

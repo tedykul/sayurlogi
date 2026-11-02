@@ -15,7 +15,8 @@ import { adminFetch } from "@/lib/api";
 import { CouponList } from "./coupon-list";
 import { GenerateCouponDialog } from "./generate-coupon-dialog";
 import { CouponStats } from "./coupon-stats";
-import { Ticket, Plus, LogOut, RefreshCw, Loader2 } from "lucide-react";
+import { IntegrationEditor } from "./integration-editor";
+import { Ticket, Plus, LogOut, RefreshCw, Loader2, Plug } from "lucide-react";
 import { toast } from "sonner";
 import type { Coupon } from "@/types";
 
@@ -200,6 +201,9 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
               <TabsList>
                 <TabsTrigger value="coupons">🎫 Kupon</TabsTrigger>
                 <TabsTrigger value="stats">📊 Statistik</TabsTrigger>
+                <TabsTrigger value="integration" className="gap-1">
+                  <Plug className="h-3 w-3" /> ERPNext
+                </TabsTrigger>
               </TabsList>
               <Button size="sm" onClick={() => setGenerateOpen(true)} className="h-8">
                 <Plus className="h-3.5 w-3.5 mr-1" /> Generate
@@ -220,6 +224,10 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
             <TabsContent value="stats" className="mt-0">
               <CouponStats coupons={coupons} />
+            </TabsContent>
+
+            <TabsContent value="integration" className="mt-0">
+              <IntegrationEditor />
             </TabsContent>
           </Tabs>
         </SheetContent>
