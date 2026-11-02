@@ -1,8 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================
+// Prisma schema — Coupon module
+// ============================================================
+// Backward compatible: existing User + Post models preserved.
+// New models added: Coupon, CouponUsage, Product, Order.
+// Coupon/CouponUsage are SayurLogi-compatible (same field names
+// + types) so this module can be merged into the SayurLogi
+// project later without schema conflicts.
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -12,6 +16,11 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+// ------------------------------------------------------------
+// Existing models (default scaffold — preserved for backward
+// compatibility, do not modify).
+// ------------------------------------------------------------
 
 model User {
   id        String   @id @default(cuid())
@@ -29,4 +38,136 @@ model Post {
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Product — minimal storefront catalog (demo for coupon flow).
+// ============================================================
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  price       Int      // IDR, no decimals (matches SayurLogi pattern)
+  category    String   @default("Umum")
+  image       String?
+  stock       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+// ============================================================
+// Order — checkout record (minimal for coupon demo).
+// ============================================================
+
+model Order {
+  id              String   @id @default(cuid())
+  itemsJson       String   // snapshot of cart items
+  subtotal        Int      // IDR
+  shipping        Int      @default(0)
+  discount        Int      @default(0) // discount applied (IDR)
+  total           Int      // subtotal - discount + shipping
+  customerName    String
+  customerEmail   String?
+  customerPhone   String
+  customerAddress String   @default("")
+  couponCode      String?  // snapshot of applied coupon code
+  status          String   @default("pending") // pending|paid|cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([couponCode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// Coupon — discount code with share + tracking + anti-abuse.
+// ============================================================
+// Field-compatible with SayurLogi's Coupon model (same names,
+// types, defaults). Additional fields (batchId, clickCount,
+// shareCount, printedAt, printedCount) extend the model for the
+// new share-via-WA + PDF export + analytics flow without
+// breaking SayurLogi's existing API consumers.
+//
+// type:        "percent" | "fixed" | "free_shipping"
+// value:       percent (1-100) or IDR amount. Ignored for free_shipping.
+// minOrder:    minimum subtotal (IDR). 0 = no minimum.
+// maxUsage:    max total redemptions. 0 = unlimited.
+// maxPerUser:  max redemptions per customer (email or phone). 0 = unlimited.
+// usedCount:   denormalized count of CouponUsage rows (incremented on apply).
+// scopeType:   "all" | "category" | "product"
+// scopeValue:  category name or product id when scopeType != "all".
+// batchId:     groups coupons created from the same generate-batch call.
+// clickCount:  increments when ?coupon=CODE link is opened (track marketing reach).
+// shareCount:  increments when admin clicks "Share WA" or "Copy link".
+// printedAt:   last time PDF was exported (audit).
+// printedCount: total PDF exports (audit).
+// ============================================================
+
+model Coupon {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String
+  value       Int      @default(0)
+  minOrder    Int      @default(0)
+  maxUsage    Int      @default(0)
+  maxPerUser  Int      @default(1)
+  usedCount   Int      @default(0)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  active      Boolean  @default(true)
+  scopeType   String   @default("all")
+  scopeValue  String?
+  note        String?
+
+  // Share + tracking (new, SayurLogi-compatible extension)
+  batchId     String?
+  description String?
+  clickCount  Int      @default(0)
+  shareCount  Int      @default(0)
+  printedAt   DateTime?
+  printedCount Int     @default(0)
+
+  usages      CouponUsage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
+  @@index([expiresAt])
+  @@index([batchId])
+}
+
+// ============================================================
+// CouponUsage — redemption log (one row per coupon application).
+// ============================================================
+// Tracks who used which coupon, when, and how much discount was
+// applied. Used for:
+//  - enforcing maxPerUser (count rows WHERE email=? OR phone=?)
+//  - analytics (total redeemed, by customer, by date)
+//  - audit trail (snapshot of code in case coupon is deleted)
+//
+// email/phone are nullable because guest checkout may omit one.
+// discount is a snapshot in IDR (so historical orders show the
+// correct amount even if the coupon value changes later).
+// ============================================================
+
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  code      String   // snapshot of coupon code at time of use
+  orderId   String?
+  email     String?
+  phone     String?
+  discount  Int
+  usedAt    DateTime @default(now())
+
+  @@index([couponId])
+  @@index([email])
+  @@index([phone])
+  @@index([orderId])
 }
