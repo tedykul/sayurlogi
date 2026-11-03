@@ -1,86 +1,93 @@
 import { db } from "@/lib/db";
-import { MOCK_PRODUCTS } from "@/lib/mock-data";
+import { MOCK_PRODUCTS_ENRICHED } from "@/lib/mock-data";
 
 // ============================================================
-// seed-products — idempotent upsert of demo products.
-// Run: bun run scripts/seed-products.ts
+// seed-products — idempotent seed of 23 products from mock data.
 // ============================================================
-// Uses MOCK_PRODUCTS (lib/mock-data.ts) as the source so the
-// seeded catalog has ERPNext-compatible fields (itemCode, emoji,
-// oldPrice, unit, published).
+// Maps each MOCK_PRODUCTS_ENRICHED entry to a Product row keyed by
+// itemCode (unique). On conflict, ERPNext-sourced fields are
+// updated; admin-edited fields (organic, onSale, tags, benefits,
+// storageTip, origin, published, order) are preserved.
 //
-// Match strategy (avoids duplicates + preserves product.id so
-// existing carts keep working):
-//   1. findFirst by itemCode — re-seed updates in place.
-//   2. else findFirst by name — enriches legacy seed rows (which
-//      had no itemCode) without creating a duplicate.
-//   3. else create new row.
-//
-// Seeded products are NOT marked ERPNext-synced (erpSyncedAt
-// stays null) so they show as "local" source until a real
-// ERPNext sync runs.
+// Only runs if the Product table is empty (no rows). Use
+// `bun run db:seed-products --force` to re-seed regardless.
 // ============================================================
 
 async function main() {
-  console.log("🌱 Seeding products from MOCK_PRODUCTS...");
-  let created = 0;
-  let updated = 0;
+  const force = process.argv.includes("--force");
+  console.log("🌱 Seeding products from mock data...");
 
-  for (const p of MOCK_PRODUCTS) {
-    if (!p.itemCode) continue;
-
-    // Match by itemCode first, then by name (legacy rows).
-    const existing =
-      (await db.product.findUnique({ where: { itemCode: p.itemCode } })) ??
-      (await db.product.findFirst({ where: { name: p.name } }));
-
-    if (existing) {
-      await db.product.update({
-        where: { id: existing.id },
-        data: {
-          itemCode: p.itemCode,
-          name: p.name,
-          description: p.description,
-          price: p.price,
-          oldPrice: p.oldPrice,
-          category: p.category,
-          unit: p.unit,
-          emoji: p.emoji,
-          stock: p.stock,
-          published: true,
-        },
-      });
-      updated++;
-      console.log(`   ♻️  ${p.itemCode} — ${p.name} di-update`);
-    } else {
-      await db.product.create({
-        data: {
-          itemCode: p.itemCode,
-          name: p.name,
-          description: p.description,
-          price: p.price,
-          oldPrice: p.oldPrice,
-          category: p.category,
-          unit: p.unit,
-          emoji: p.emoji,
-          stock: p.stock,
-          published: true,
-        },
-      });
-      created++;
-      console.log(`   ✅ ${p.itemCode} — ${p.name} dibuat`);
-    }
+  const existingCount = await db.product.count();
+  if (existingCount > 0 && !force) {
+    console.log(
+      `  ℹ️  Product table already has ${existingCount} rows. Skipping (use --force to re-seed).`
+    );
+    return;
   }
 
-  console.log(`\n✨ Selesai: ${created} dibuat, ${updated} di-update.`);
+  let created = 0;
+  let updated = 0;
+  for (let i = 0; i < MOCK_PRODUCTS_ENRICHED.length; i++) {
+    const p = MOCK_PRODUCTS_ENRICHED[i];
+    if (!p.itemCode) continue;
+    // Check existence first so we can report created vs updated counts.
+    const existing = await db.product.findUnique({
+      where: { itemCode: p.itemCode },
+      select: { id: true },
+    });
+    await db.product.upsert({
+      where: { itemCode: p.itemCode },
+      create: {
+        itemCode: p.itemCode,
+        name: p.name,
+        description: p.description || "",
+        longDescription: p.longDescription || null,
+        category: p.category || "Lainnya",
+        price: p.price || 0,
+        oldPrice: p.oldPrice ?? null,
+        unit: p.unit || "pcs",
+        stock: p.stock ?? 0,
+        emoji: p.emoji || "🛒",
+        image: p.image || null,
+        organic: !!p.organic,
+        onSale: !!p.onSale,
+        tags: p.tags && p.tags.length > 0 ? JSON.stringify(p.tags) : null,
+        benefits:
+          p.benefits && p.benefits.length > 0
+            ? JSON.stringify(p.benefits)
+            : null,
+        storageTip: p.storageTip || null,
+        origin: p.origin || null,
+        published: true,
+        order: i,
+      },
+      update: {
+        // Refresh core fields on conflict (admin-edited fields preserved)
+        name: p.name,
+        description: p.description || "",
+        longDescription: p.longDescription || null,
+        category: p.category || "Lainnya",
+        price: p.price || 0,
+        oldPrice: p.oldPrice ?? null,
+        unit: p.unit || "pcs",
+        stock: p.stock ?? 0,
+        emoji: p.emoji || "🛒",
+        image: p.image || null,
+      },
+    });
+    if (existing) updated++;
+    else created++;
+  }
+
+  console.log(`  ✓ ${MOCK_PRODUCTS_ENRICHED.length} products processed (${created} created, ${updated} updated)`);
+  console.log("\n✅ Seed-products complete!");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed error:", e);
+    console.error("❌ seed-products failed:", e);
     process.exit(1);
   })
   .finally(async () => {
     await db.$disconnect();
   });
-

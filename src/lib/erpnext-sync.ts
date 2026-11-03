@@ -4,41 +4,24 @@ import { fetchProducts, isErpnextConfigured } from "@/lib/erpnext";
 // ============================================================
 // ERPNext sync — pull products from ERPNext into the local DB.
 // ============================================================
-// One-way sync (ERPNext → local DB). Creates or updates Product
-// rows keyed by itemCode. Existing rows keep their admin-edited
-// fields — only ERPNext-sourced fields (name, description,
-// category, price, unit, stock, image, emoji) are overwritten.
+// This is a one-way sync (ERPNext → local DB). It creates or
+// updates Product rows keyed by itemCode. Existing rows keep
+// their admin-edited fields (organic, onSale, tags, benefits,
+// storageTip, origin, published, order) — only ERPNext-sourced
+// fields (name, description, category, price, unit, stock, image)
+// are overwritten.
 //
-// Image URLs from ERPNext ("/files/..." or "/private/files/...")
-// are rewritten to "/api/erp-image/..." proxy paths so the
-// storefront can serve them same-origin without CORS issues.
-//
-// Auto-unpublish: products in DB that no longer exist in ERPNext
-// are marked published=false (NOT deleted). Only runs when source
-// is genuinely "erpnext" (not mock fallback) to avoid mass-unpublish
-// on a transient ERPNext outage.
+// downloadImage: optional helper used by the upload route when
+// importing product photos from ERPNext URLs.
 // ============================================================
 
 export interface SyncResult {
-  source: "erpnext" | "mock";
-  success: boolean;
+  source: "erpnext" | "mock" | "unknown";
   synced: number;
   total: number;
   unpublished: number;
   message: string;
   lastSyncAt: Date | null;
-}
-
-/** Rewrite ERPNext image path to the local proxy endpoint. */
-function rewriteImage(image: string | null): string | null {
-  if (!image) return null;
-  // Handle both public (/files/...) and private (/private/files/...) images.
-  // ERPNext private files require auth — proxy handles that.
-  if (image.startsWith("/private/files/") || image.startsWith("/files/")) {
-    return `/api/erp-image${image}`;
-  }
-  // Absolute URL or already-proxied — keep as-is.
-  return image;
 }
 
 /**
@@ -47,27 +30,41 @@ function rewriteImage(image: string | null): string | null {
  *   mock products into DB so admin can edit them.
  * - If ERPNext configured but unreachable → fetchProducts returns
  *   mock data (handled in erpnext.ts).
- * - Auto-unpublish orphans only when source is genuinely ERPNext.
+ * - Auto-unpublish: products in DB that no longer exist in ERPNext
+ *   are marked published=false (NOT deleted — admin can re-publish
+ *   manually if needed). Only runs when source is genuinely "erpnext"
+ *   (not mock fallback), to avoid mass-unpublish on transient outage.
  */
 export async function syncAllFromErpnext(): Promise<SyncResult> {
   const configured = isErpnextConfigured();
-  const source: "erpnext" | "mock" = configured ? "erpnext" : "mock";
+  const source: "erpnext" | "mock" | "unknown" = configured
+    ? "erpnext"
+    : "mock";
 
   try {
     const { products, source: fetchedSource } = await fetchProducts();
     let synced = 0;
     const syncedItemCodes: string[] = [];
-
-    // Only stamp erpSyncedAt when the data genuinely came from ERPNext.
-    // Mock-fallback (ERPNext configured but unreachable, or not configured
-    // at all) does NOT set erpSyncedAt — so /api/products honestly
-    // reports source="local" until a real ERPNext sync succeeds.
-    const isGenuineErp = fetchedSource === "erpnext";
-
     for (const p of products) {
       if (!p.itemCode) continue;
       syncedItemCodes.push(p.itemCode);
-
+      // Rewrite ERPNext file paths to proxy endpoint.
+      // ERPNext stores uploaded files at "/files/xxx.png" (internal URL
+      // not accessible from browser). We proxy via /api/erp-image/ so
+      // the storefront can serve them same-origin without CORS issues.
+      const rewrittenImage = (() => {
+        if (!p.image) return null;
+        // Handle both public (/files/...) and private (/private/files/...) images.
+        // ERPNext stores private files at /private/files/ which require auth.
+        if (p.image.startsWith("/private/files/")) {
+          return `/api/erp-image${p.image}`;
+        }
+        if (p.image.startsWith("/files/")) {
+          return `/api/erp-image${p.image}`;
+        }
+        return p.image;
+      })();
+      // ERPNext-sourced fields to upsert.
       const erpData = {
         name: p.name,
         description: p.description || "",
@@ -77,17 +74,16 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
         unit: p.unit || "pcs",
         stock: p.stock ?? 0,
         emoji: p.emoji || "🛒",
-        image: rewriteImage(p.image),
-        ...(isGenuineErp ? { erpSyncedAt: new Date() } : {}),
+        image: rewrittenImage,
+        erpSyncedAt: new Date(),
       };
-
       await db.product.upsert({
         where: { itemCode: p.itemCode },
         create: {
           itemCode: p.itemCode,
           ...erpData,
-          // New products default to published=true so the sync
-          // result is immediately visible on the storefront.
+          // New products default to published=true so the sync result
+          // is immediately visible on the storefront.
           published: true,
         },
         update: erpData,
@@ -95,9 +91,13 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
       synced++;
     }
 
-    // Auto-unpublish orphans (only when source is genuinely ERPNext).
+    // Auto-unpublish: products in DB that no longer exist in ERPNext.
+    // Only run when source is genuinely ERPNext (not mock fallback),
+    // to avoid mass-unpublish on transient ERPNext outage.
     let unpublished = 0;
-    if (isGenuineErp && syncedItemCodes.length > 0) {
+    if (fetchedSource === "erpnext" && syncedItemCodes.length > 0) {
+      // Find DB products with erpSyncedAt (sourced from ERPNext before)
+      // whose itemCode is NOT in the current ERPNext list.
       const orphans = await db.product.findMany({
         where: {
           erpSyncedAt: { not: null },
@@ -113,7 +113,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
         });
         unpublished = toUnpublish.length;
         console.log(
-          `[erpnext-sync] Auto-unpublished ${unpublished} orphaned product(s): ${toUnpublish
+          `[erpnext-sync] Auto-unpublished ${unpublished} orphaned product(s) (no longer in ERPNext): ${toUnpublish
             .map((o) => o.itemCode)
             .join(", ")}`
         );
@@ -122,7 +122,6 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
 
     return {
       source: fetchedSource === "erpnext" ? "erpnext" : source,
-      success: true,
       synced,
       total: products.length,
       unpublished,
@@ -138,7 +137,6 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
     console.error("[erpnext-sync] syncAllFromErpnext failed:", err);
     return {
       source,
-      success: false,
       synced: 0,
       total: 0,
       unpublished: 0,
@@ -162,10 +160,18 @@ export async function syncSingleItem(itemCode: string): Promise<{
     if (!match) {
       return { ok: false, message: `Item ${itemCode} tidak ditemukan di ERPNext` };
     }
+    // Rewrite ERPNext file paths to proxy endpoint (same as syncAllFromErpnext).
+    const rewrittenImage = (() => {
+      if (!match.image) return null;
+      if (match.image.startsWith("/files/")) {
+        return `/api/erp-image${match.image.replace(/^\/files\//, "/")}`;
+      }
+      return match.image;
+    })();
     await db.product.upsert({
-      where: { itemCode: match.itemCode! },
+      where: { itemCode: match.itemCode },
       create: {
-        itemCode: match.itemCode!,
+        itemCode: match.itemCode,
         name: match.name,
         description: match.description || "",
         category: match.category || "Lainnya",
@@ -173,7 +179,7 @@ export async function syncSingleItem(itemCode: string): Promise<{
         unit: match.unit || "pcs",
         stock: match.stock ?? 0,
         emoji: match.emoji || "🛒",
-        image: rewriteImage(match.image),
+        image: rewrittenImage,
         published: true,
         erpSyncedAt: new Date(),
       },
@@ -185,7 +191,7 @@ export async function syncSingleItem(itemCode: string): Promise<{
         unit: match.unit || "pcs",
         stock: match.stock ?? 0,
         emoji: match.emoji || "🛒",
-        image: rewriteImage(match.image),
+        image: rewrittenImage,
         erpSyncedAt: new Date(),
       },
     });
@@ -196,4 +202,17 @@ export async function syncSingleItem(itemCode: string): Promise<{
       message: `Sync gagal: ${err instanceof Error ? err.message : "unknown error"}`,
     };
   }
+}
+
+/**
+ * Download an image from a URL and return it as a Buffer.
+ * Used when migrating ERPNext-hosted product photos into /public.
+ */
+export async function downloadImage(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Download gagal: ${res.status} ${res.statusText}`);
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  // Optional: validate shared secret header.
+  // Optional: validate secret header
   const expectedSecret = process.env.WEBHOOK_SECRET;
   if (expectedSecret) {
     const providedSecret = req.headers.get("x-sayurlogi-webhook-secret");
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Respond immediately so ERPNext doesn't time out. Run sync in
-  // background (fire-and-forget).
+  // Respond immediately so ERPNext doesn't time out
+  // Run sync in background (fire-and-forget)
   syncAllFromErpnext()
     .then((result) => {
       console.log(
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// GET endpoint for testing.
+// GET endpoint for testing
 export async function GET() {
   return NextResponse.json({
     success: true,

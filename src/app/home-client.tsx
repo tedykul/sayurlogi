@@ -1,212 +1,342 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Header } from "@/components/storefront/header";
-import { Footer } from "@/components/storefront/footer";
-import { ProductGrid } from "@/components/storefront/product-grid";
-import { CartSheet } from "@/components/storefront/cart-sheet";
-import { CouponAppliedToast } from "@/components/storefront/coupon-applied-toast";
-import { AdminOverlay } from "@/components/admin/admin-overlay";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { Header } from "@/components/grocery/header";
+import { Hero } from "@/components/grocery/hero";
+import { CategoryTabs } from "@/components/grocery/category-tabs";
+import { ProductGrid } from "@/components/grocery/product-grid";
+import { CartSheet } from "@/components/grocery/cart-sheet";
+import { CheckoutDialog } from "@/components/grocery/checkout-dialog";
+import { ProductDetailDialog } from "@/components/grocery/product-detail-dialog";
+import { WishlistSheet } from "@/components/grocery/wishlist-sheet";
+import { RecentlyViewedSection } from "@/components/grocery/recently-viewed-section";
+import { useRecentlyViewed } from "@/hooks/use-recently-viewed";
+import { AdvancedFilter, DEFAULT_FILTER, applyFilter, type FilterState } from "@/components/grocery/advanced-filter";
+import { Footer } from "@/components/grocery/footer";
+import { AboutSection } from "@/components/grocery/about-section";
+import { TestimonialsSection } from "@/components/grocery/testimonials-section";
+import { FaqSection } from "@/components/grocery/faq-section";
+import { ContactSection } from "@/components/grocery/contact-section";
+import { ContactSheet } from "@/components/grocery/contact-sheet";
+import { BackToTop } from "@/components/grocery/back-to-top";
+import { ServiceWorkerRegistration } from "@/components/grocery/sw-registration";
+import { PWAInstallPrompt } from "@/components/grocery/pwa-install-prompt";
+import { PromoBanner } from "@/components/grocery/promo-banner";
+import { PromoCarousel } from "@/components/grocery/promo-carousel";
+import { BestSellerCarousel } from "@/components/grocery/best-seller-carousel";
+import { BottomNav } from "@/components/grocery/bottom-nav";
 import { useCartStore } from "@/lib/store/cart";
-import { publicFetch } from "@/lib/api";
-import { toast } from "sonner";
-import { Ticket } from "lucide-react";
-import type { AppliedCoupon, Coupon } from "@/types";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useWishlistStore } from "@/lib/store/wishlist";
+import { AdminOverlay } from "@/components/admin/admin-overlay";
+import { OrderTrackingDialog } from "@/components/grocery/order-tracking-dialog";
+import { OrderHistoryDialog } from "@/components/grocery/order-history-dialog";
+import { SharedWishlistDialog } from "@/components/grocery/shared-wishlist-dialog";
+import { CustomerAuthDialog } from "@/components/grocery/customer-auth-dialog";
+import { StickyCartBar } from "@/components/grocery/sticky-cart-bar";
+import { useCustomerStore } from "@/lib/store/customer";
+import { Suspense } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Product, Category } from "@/types/grocery";
+import type { PageContent } from "@/lib/page-content";
 
-export function HomeClient() {
-  const [searchQuery, setSearchQuery] = useState("");
+type SortKey = "popular" | "price-asc" | "price-desc" | "name";
+
+interface HomeClientProps {
+  content: PageContent;
+}
+
+export function HomeClient({ content }: HomeClientProps) {
+  const [categories, setCategories] = useState<Category[]>(content.categories);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<"erpnext" | "db" | "mock" | null>(null);
+
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const applyCoupon = useCartStore((s) => s.applyCoupon);
-  const items = useCartStore((s) => s.items);
-  const existingCoupon = useCartStore((s) => s.coupon);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const autoApplyAttempted = useRef(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("popular");
+  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
 
-  // Auto-apply coupon from ?coupon= URL query param.
-  // Waits for cart items to be loaded first (from localStorage persistence).
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const productSectionRef = useRef<HTMLDivElement>(null);
+  const { add: addRecentlyViewed } = useRecentlyViewed();
+
+  const handleOpenDetail = (product: Product) => {
+    setDetailProduct(product);
+    setDetailOpen(true);
+    addRecentlyViewed(product);
+  };
+
+  // Categories come from server props (DB-driven with fallback).
+  // No need to fetch client-side anymore.
+
+  // Fetch products when category changes
+  // Wrapped in useCallback so it can be called manually (e.g. after checkout)
+  const fetchProducts = useCallback(() => {
+    const url = activeCategory
+      ? `/api/products?category=${encodeURIComponent(activeCategory)}`
+      : "/api/products";
+    return fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        setProducts(data.products || []);
+        setSource(data.source || null);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [activeCategory]);
+
   useEffect(() => {
-    if (autoApplyAttempted.current) return;
-    const code = searchParams.get("coupon");
-    if (!code) return;
-
-    // Don't override existing coupon
-    if (existingCoupon) {
-      autoApplyAttempted.current = true;
-      // Clean URL
-      router.replace("/");
-      return;
-    }
-
-    autoApplyAttempted.current = true;
-
-    const tryApply = async () => {
-      try {
-        // Track click (analytics)
-        await publicFetch(`/api/coupons/${encodeURIComponent(code)}/track`, {
-          method: "POST",
-        }).catch(() => {});
-
-        // Need cart items to validate — if empty, show toast telling user to add items first
-        if (items.length === 0) {
-          toast(`Kupon ${code.toUpperCase()} siap dipakai`, {
-            description: "Tambahkan produk ke keranjang untuk menerapkan kupon otomatis.",
-            icon: <Ticket className="h-4 w-4 text-green-600" />,
-          });
-          return;
-        }
-
-        const lines = items.map((i) => ({
-          productId: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity,
-          category: i.product.category,
-        }));
-
-        const data = await publicFetch<{
-          valid: boolean;
-          reason?: string;
-          discount: number;
-          freeShipping: boolean;
-          coupon?: Coupon;
-        }>(`/api/coupons/${encodeURIComponent(code)}/validate`, {
-          method: "POST",
-          body: JSON.stringify({ lines, shippingFee: 10000 }),
-        });
-
-        if (!data.valid) {
-          toast.error(`Kupon ${code.toUpperCase()} tidak valid`, {
-            description: data.reason,
-          });
-          return;
-        }
-
-        const applied: AppliedCoupon = {
-          code: data.coupon!.code,
-          type: data.coupon!.type,
-          value: data.coupon!.value,
-          discount: data.discount,
-          freeShipping: data.freeShipping,
-          minOrder: data.coupon!.minOrder,
-        };
-        applyCoupon(applied);
-        toast.success(`Kupon ${code.toUpperCase()} diterapkan!`, {
-          description: `Hemat Rp${data.discount.toLocaleString("id-ID")}`,
-          icon: <Ticket className="h-4 w-4" />,
-        });
-      } catch (err) {
-        toast.error("Gagal menerapkan kupon dari URL");
-        console.error(err);
-      } finally {
-        // Clean URL coupon param (so refresh doesn't re-apply)
-        router.replace("/");
-      }
+    let cancelled = false;
+    fetchProducts().then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
     };
+  }, [fetchProducts]);
 
-    // Small delay to let persisted cart hydrate
-    const t = setTimeout(tryApply, 300);
-    return () => clearTimeout(t);
-  }, [searchParams, items.length, existingCoupon]);
+  // Fetch customer profile on mount (cookie sent automatically).
+  // Sets customer in store → header shows avatar instead of "Masuk".
+  const fetchCustomer = useCustomerStore((s) => s.fetchCustomer);
+  useEffect(() => {
+    fetchCustomer();
+  }, [fetchCustomer]);
+
+  // Handler: called when checkout succeeds → re-fetch products to update stock
+  const handleCheckoutSuccess = useCallback(() => {
+    // Delay 2s to allow background ERPNext sync to complete
+    setTimeout(() => {
+      fetchProducts();
+    }, 2000);
+  }, [fetchProducts]);
+
+  const handleCategoryChange = (id: string | null) => {
+    setActiveCategory(id);
+    setLoading(true);
+  };
+
+  // Filter + sort client-side (search + advanced filter + sort)
+  const filteredProducts = useMemo(() => {
+    let list = products;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
+      );
+    }
+    // Apply advanced filter (price range, organic, on-sale, tags)
+    list = applyFilter(list, filter);
+    const sorted = [...list];
+    switch (sort) {
+      case "price-asc":
+        sorted.sort((a, b) => a.price - b.price);
+        break;
+      case "price-desc":
+        sorted.sort((a, b) => b.price - a.price);
+        break;
+      case "name":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      default:
+        // popular: onSale first, then by stock desc
+        sorted.sort((a, b) => {
+          if (a.onSale && !b.onSale) return -1;
+          if (!a.onSale && b.onSale) return 1;
+          return b.stock - a.stock;
+        });
+    }
+    return sorted;
+  }, [products, searchQuery, sort, filter]);
+
+  const scrollToProducts = () => {
+    productSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [trackingOpen, setTrackingOpen] = useState(false);
+  const [trackingId, setTrackingId] = useState<string | undefined>(undefined);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
+
+  const handleTrackOrder = (id: string) => {
+    setTrackingId(id);
+    setTrackingOpen(true);
+    setCheckoutOpen(false);
+    setHistoryOpen(false);
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-green-50/50 to-background">
-      <Header />
+    <div className="flex min-h-screen flex-col">
+      <Header
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        brandName={content.brandName ?? "SayurLogi"}
+        onOpenOrderHistory={() => setHistoryOpen(true)}
+      />
 
-      {/* Hero */}
-      <section className="border-b bg-gradient-to-br from-green-600 to-emerald-700 text-white">
-        <div className="container mx-auto max-w-6xl px-4 py-10 sm:py-14">
-          <div className="max-w-2xl">
-            <span className="inline-block px-3 py-1 rounded-full bg-white/15 text-xs font-medium backdrop-blur mb-3">
-              🎫 Sekarang dengan Kupon Diskon!
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Sayur & Buah Segar
-              <br />
-              <span className="text-green-200">Dipetik pagi, sampai rumah siang</span>
-            </h1>
-            <p className="mt-3 text-green-100 text-sm sm:text-base">
-              Belanja mudah, pakai kupon dari WhatsApp buat hemat lebih. Coba klik link
-              share kupon dan lihat magic-nya!
-            </p>
-            <div className="mt-4 flex gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-xs">
-                ✅ Auto-apply kupon via URL
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-xs">
-                📱 Share via WhatsApp
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-xs">
-                🖨 Export PDF + QR
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur text-xs">
-                🔌 Backend ERPNext
-              </span>
+      <main className="flex-1">
+        <Hero onShopNow={scrollToProducts} content={content} />
+
+        {/* Promo banner (dismissible, persists via localStorage) */}
+        <PromoBanner
+          promoId={content.promoId ?? undefined}
+          title={content.promoTitle ?? undefined}
+          description={content.promoDescription ?? undefined}
+        />
+
+        {/* Products section */}
+        <section
+          id="belanja"
+          ref={productSectionRef}
+          className="scroll-mt-24"
+        >
+          {/* Sticky sub-nav: category pills + sort/filter. Sticks under the main header.
+              Mobile header ≈ 65px (top-16), desktop header ≈ 94px (top-[94px]). */}
+          <div className="sticky top-16 md:top-[94px] z-30 border-b border-border/40 bg-background/85 backdrop-blur-lg supports-[backdrop-filter]:bg-background/70">
+            <div className="mx-auto max-w-7xl px-4 py-3">
+              <div className="flex items-center gap-3">
+                {/* Category tabs — horizontal scroll */}
+                <div className="min-w-0 flex-1">
+                  <CategoryTabs
+                    categories={categories}
+                    active={activeCategory}
+                    onChange={handleCategoryChange}
+                  />
+                </div>
+                {/* Sort + filter — compact */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <AdvancedFilter products={products} filter={filter} onChange={setFilter} />
+                  <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                    <SelectTrigger className="w-[120px] h-8 rounded-full text-xs md:w-[140px] md:h-9 md:text-sm">
+                      <SelectValue placeholder="Urutkan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="popular">Terpopuler</SelectItem>
+                      <SelectItem value="price-asc">Harga Terendah</SelectItem>
+                      <SelectItem value="price-desc">Harga Tertinggi</SelectItem>
+                      <SelectItem value="name">Nama A-Z</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Search + category filter */}
-      <section className="sticky top-14 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container mx-auto max-w-6xl px-4 py-2.5 flex gap-2 items-center">
-          <Input
-            placeholder="Cari produk..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 max-w-xs"
-          />
-          <div className="flex gap-1 overflow-x-auto flex-1">
-            <Button
-              variant={!activeCategory ? "default" : "ghost"}
-              size="sm"
-              className="h-9 shrink-0"
-              onClick={() => setActiveCategory(null)}
-            >
-              Semua
-            </Button>
-            <Button
-              variant={activeCategory === "Sayuran" ? "default" : "ghost"}
-              size="sm"
-              className="h-9 shrink-0"
-              onClick={() => setActiveCategory("Sayuran")}
-            >
-              Sayuran
-            </Button>
-            <Button
-              variant={activeCategory === "Buah" ? "default" : "ghost"}
-              size="sm"
-              className="h-9 shrink-0"
-              onClick={() => setActiveCategory("Buah")}
-            >
-              Buah
-            </Button>
+          {/* Section heading + content */}
+          <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
+            <div className="mb-5">
+              <h2 className="text-xl font-bold tracking-tight md:text-2xl">Belanja Pilihan</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 md:text-sm">
+                Pilih kategori atau cari produk favoritmu
+              </p>
+            </div>
+
+            {/* Best Seller carousel — horizontal scroll, surfaces top products (mobile only) */}
+            {!loading && !activeCategory && !searchQuery && (
+              <BestSellerCarousel products={products} onOpenDetail={handleOpenDetail} />
+            )}
+
+            {/* Promo carousel — horizontal scroll, breaks vertical monotony */}
+            {!loading && !activeCategory && !searchQuery && (
+              <PromoCarousel products={products} onOpenDetail={handleOpenDetail} />
+            )}
+
+            {/* Recently viewed products (hidden until user opens at least 1 detail) */}
+            <RecentlyViewedSection onProductClick={handleOpenDetail} />
+
+            <ProductGrid
+              products={filteredProducts}
+              loading={loading}
+              source={source}
+              onOpenDetail={handleOpenDetail}
+            />
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Products */}
-      <main className="flex-1 container mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="text-lg font-bold">
-            {activeCategory ?? "Semua Produk"}
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {searchQuery ? `Pencarian: "${searchQuery}"` : "Pilih produk segar"}
-          </span>
-        </div>
-        <ProductGrid category={activeCategory ?? undefined} searchQuery={searchQuery} />
+        {/* About section */}
+        <AboutSection content={content} />
+
+        {/* Testimonials section */}
+        <TestimonialsSection testimonials={content.testimonials} />
+
+        {/* FAQ section */}
+        <FaqSection faqs={content.faqs} onOpenContactSheet={() => setContactSheetOpen(true)} />
+
+        {/* Contact section */}
+        <ContactSection content={content} />
       </main>
 
-      <Footer />
+      <Footer
+        content={content}
+        onTrackOrder={() => { setTrackingId(undefined); setTrackingOpen(true); }}
+        onOrderHistory={() => setHistoryOpen(true)}
+      />
 
-      {/* Floating elements */}
-      <CartSheet />
-      <CouponAppliedToast />
-      <AdminOverlay />
+      {/* Floating UI */}
+      <CartSheet onCheckout={() => setCheckoutOpen(true)} />
+      <CheckoutDialog
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        onTrackOrder={handleTrackOrder}
+        onCheckoutSuccess={handleCheckoutSuccess}
+      />
+      <ProductDetailDialog
+        product={detailProduct}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onBuyNow={() => setCheckoutOpen(true)}
+        relatedProducts={detailProduct ? products.filter((p) => p.category === detailProduct.category && p.id !== detailProduct.id).slice(0, 6) : []}
+        onSelectRelated={(p) => {
+          setDetailProduct(p);
+        }}
+      />
+      <WishlistSheet onProductClick={handleOpenDetail} />
+      <ContactSheet
+        open={contactSheetOpen}
+        onOpenChange={setContactSheetOpen}
+        content={content}
+      />
+      <OrderTrackingDialog
+        open={trackingOpen}
+        onOpenChange={setTrackingOpen}
+        initialTrackingId={trackingId}
+      />
+      <OrderHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        onTrackOrder={handleTrackOrder}
+      />
+      <BackToTop />
+
+      {/* PWA: service worker registration + install prompt */}
+      <ServiceWorkerRegistration />
+      <PWAInstallPrompt />
+
+      {/* Mobile bottom navigation — native app feel (4 items + elevated cart FAB) */}
+      <BottomNav
+        onOpenCart={() => useCartStore.getState().openCart()}
+        onOpenWishlist={() => useWishlistStore.getState().openWishlist()}
+      />
+
+      {/* Admin overlay (hidden by default, Ctrl+Shift+A or footer button) */}
+      <AdminOverlay open={adminOpen} onOpenChange={setAdminOpen} />
+
+      {/* Shared wishlist dialog — opens when ?wishlist=<token> is present.
+          Wrapped in Suspense because useSearchParams requires it. */}
+      <Suspense fallback={null}>
+        <SharedWishlistDialog />
+      </Suspense>
+
+      {/* Sticky mobile cart bar — shows when cart has items */}
+      <StickyCartBar />
+
+      {/* Customer auth dialog (login/register) — controlled by useCustomerStore */}
+      <CustomerAuthDialog />
     </div>
   );
 }

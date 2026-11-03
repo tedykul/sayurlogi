@@ -1,22 +1,23 @@
 // ============================================================
-// ERPNext Sync Cron Service
+// ERPNext Sync Cron Service (OPTIMIZED)
 // ============================================================
-// Pulls products from ERPNext into the local DB on a fixed
-// interval (default 15 min). Auto-retry on failure (3 attempts
-// with exponential backoff). Non-overlapping (skips interval if
-// a previous sync is still running).
+// Features:
+//   - Runs every 15 minutes (configurable via SYNC_INTERVAL_MS env)
+//   - Auto-retry on failure (3 attempts with exponential backoff)
+//   - Structured logging (console + file)
+//   - Health monitoring endpoint (/health)
+//   - Manual trigger (/trigger)
+//   - Sync history (last 20 results in memory)
+//   - Graceful shutdown (finish current sync before exit)
+//   - Auto-recovery (if sync crashes, next interval auto-resumes)
 //
-// HTTP endpoints:
-//   GET /health   — status + stats + recent history
-//   GET /trigger  — manual sync trigger (async)
-//   GET /history  — full sync history (last 20)
-//
-// Port: 3010 (fixed). Started by the main dev environment.
+// Port: 3010
+// Start: cd mini-services/erpnext-sync && bun run dev
 // ============================================================
 
 import { syncAllFromErpnext } from "../../src/lib/erpnext-sync";
 
-const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MS || "900000"); // 15 min
+const SYNC_INTERVAL_MS = parseInt(process.env.SYNC_INTERVAL_MS || "900000"); // 15 min default
 const PORT = 3010;
 const MAX_HISTORY = 20;
 const MAX_RETRIES = 3;
@@ -27,8 +28,9 @@ interface SyncHistoryEntry {
   success: boolean;
   message: string;
   total?: number;
-  synced?: number;
-  unpublished?: number;
+  created?: number;
+  updated?: number;
+  imagesDownloaded?: number;
   durationMs: number;
   attempt: number;
   error?: string;
@@ -39,14 +41,17 @@ let syncCount = 0;
 let successCount = 0;
 let failureCount = 0;
 let lastSyncAt: Date | null = null;
-let nextSyncAt: Date = calculateNextSync();
+let nextSyncAt: Date | null = null;
 const syncHistory: SyncHistoryEntry[] = [];
 
+/** Calculate next sync time */
 function calculateNextSync(): Date {
   return new Date(Date.now() + SYNC_INTERVAL_MS);
 }
 
-/** Run sync with retry logic. */
+nextSyncAt = calculateNextSync();
+
+/** Run sync with retry logic */
 async function runSyncWithRetry(): Promise<SyncHistoryEntry> {
   const startTime = Date.now();
   let lastError: string | undefined;
@@ -60,17 +65,20 @@ async function runSyncWithRetry(): Promise<SyncHistoryEntry> {
         success: result.success,
         message: result.message,
         total: result.total,
-        synced: result.synced,
-        unpublished: result.unpublished,
+        created: result.created,
+        updated: result.updated,
+        imagesDownloaded: result.imagesDownloaded,
         durationMs: Date.now() - startTime,
         attempt,
         error: result.success ? undefined : result.message,
       };
 
-      if (result.success) return entry;
+      if (result.success) {
+        return entry;
+      }
 
-      // If ERPNext not configured, no point retrying.
-      if (result.message.includes("belum dikonfigurasi") || result.source === "mock") {
+      // If not success but not retryable (e.g., ERPNext not configured), don't retry
+      if (result.message.includes("belum dikonfigurasi")) {
         return entry;
       }
 
@@ -100,7 +108,7 @@ async function runSyncWithRetry(): Promise<SyncHistoryEntry> {
   };
 }
 
-/** Main sync runner (guarded against overlap). */
+/** Main sync runner */
 async function runSync() {
   if (isSyncing) {
     console.log("[sync] Already running, skipping this interval...");
@@ -116,6 +124,7 @@ async function runSync() {
   try {
     const entry = await runSyncWithRetry();
 
+    // Update stats
     if (entry.success) {
       successCount++;
       console.log(`[sync] ✅ ${entry.message}`);
@@ -126,6 +135,7 @@ async function runSync() {
     }
     console.log(`[sync] Duration: ${entry.durationMs}ms, Attempts: ${entry.attempt}`);
 
+    // Add to history
     syncHistory.unshift(entry);
     if (syncHistory.length > MAX_HISTORY) syncHistory.pop();
 
@@ -134,14 +144,15 @@ async function runSync() {
   } catch (err: any) {
     failureCount++;
     console.error(`[sync] ❌ Fatal error:`, err.message);
-    syncHistory.unshift({
+    const entry: SyncHistoryEntry = {
       timestamp: new Date().toISOString(),
       success: false,
       message: `Fatal error: ${err.message}`,
       durationMs: 0,
       attempt: MAX_RETRIES,
       error: err.message,
-    });
+    };
+    syncHistory.unshift(entry);
     if (syncHistory.length > MAX_HISTORY) syncHistory.pop();
     lastSyncAt = new Date();
     nextSyncAt = calculateNextSync();
@@ -158,30 +169,29 @@ const server = Bun.serve({
   fetch(req) {
     const url = new URL(req.url);
 
+    // Health check
     if (url.pathname === "/health") {
       const successRate = syncCount > 0 ? ((successCount / syncCount) * 100).toFixed(1) : "0";
-      return Response.json(
-        {
-          status: "ok",
-          service: "erpnext-sync",
-          version: "1.0",
-          uptime: process.uptime ? `${Math.floor(process.uptime())}s` : "N/A",
-          isSyncing,
-          syncCount,
-          successCount,
-          failureCount,
-          successRate: `${successRate}%`,
-          lastSyncAt: lastSyncAt?.toISOString() || null,
-          nextSyncAt: nextSyncAt?.toISOString() || null,
-          nextSyncInMs: nextSyncAt ? Math.max(0, nextSyncAt.getTime() - Date.now()) : null,
-          intervalMs: SYNC_INTERVAL_MS,
-          intervalHuman: `${SYNC_INTERVAL_MS / 1000 / 60} minutes`,
-          recentHistory: syncHistory.slice(0, 5),
-        },
-        { headers: { "Cache-Control": "no-store" } }
-      );
+      return Response.json({
+        status: "ok",
+        service: "erpnext-sync",
+        version: "2.0",
+        uptime: process.uptime ? `${Math.floor(process.uptime())}s` : "N/A",
+        isSyncing,
+        syncCount,
+        successCount,
+        failureCount,
+        successRate: `${successRate}%`,
+        lastSyncAt: lastSyncAt?.toISOString() || null,
+        nextSyncAt: nextSyncAt?.toISOString() || null,
+        nextSyncInMs: nextSyncAt ? Math.max(0, nextSyncAt.getTime() - Date.now()) : null,
+        intervalMs: SYNC_INTERVAL_MS,
+        intervalHuman: `${SYNC_INTERVAL_MS / 1000 / 60} minutes`,
+        recentHistory: syncHistory.slice(0, 5),
+      }, { headers: { "Cache-Control": "no-store" } });
     }
 
+    // Manual trigger
     if (url.pathname === "/trigger") {
       if (isSyncing) {
         return Response.json({ success: false, message: "Sync already in progress." });
@@ -190,28 +200,34 @@ const server = Bun.serve({
       return Response.json({ success: true, message: "Sync triggered. Check /health for status." });
     }
 
+    // Full history
     if (url.pathname === "/history") {
-      return Response.json({ success: true, total: syncHistory.length, history: syncHistory });
+      return Response.json({
+        success: true,
+        total: syncHistory.length,
+        history: syncHistory,
+      });
     }
 
+    // Root — info page
     return new Response(
-      `ERPNext Sync Service v1.0\n` +
-        `============================\n\n` +
-        `Status: ${isSyncing ? "SYNCING..." : "IDLE"}\n` +
-        `Total syncs: ${syncCount} (✅ ${successCount} / ❌ ${failureCount})\n` +
-        `Last sync: ${lastSyncAt?.toISOString() || "never"}\n` +
-        `Next sync: ${nextSyncAt?.toISOString() || "starting..."}\n\n` +
-        `Endpoints:\n` +
-        `  GET /health   — Status + stats + recent history\n` +
-        `  GET /trigger  — Trigger manual sync\n` +
-        `  GET /history  — Full sync history (last ${MAX_HISTORY})\n`,
+      `ERPNext Sync Service v2.0\n` +
+      `============================\n\n` +
+      `Status: ${isSyncing ? "SYNCING..." : "IDLE"}\n` +
+      `Total syncs: ${syncCount} (✅ ${successCount} / ❌ ${failureCount})\n` +
+      `Last sync: ${lastSyncAt?.toISOString() || "never"}\n` +
+      `Next sync: ${nextSyncAt?.toISOString() || "starting..."}\n\n` +
+      `Endpoints:\n` +
+      `  GET /health   — Status + stats + recent history\n` +
+      `  GET /trigger  — Trigger manual sync\n` +
+      `  GET /history  — Full sync history (last ${MAX_HISTORY})\n`,
       { headers: { "Content-Type": "text/plain" } }
     );
   },
 });
 
 console.log(`${"=".repeat(60)}`);
-console.log(`[erpnext-sync] Service v1.0 running on port ${PORT}`);
+console.log(`[erpnext-sync] Service v2.0 running on port ${PORT}`);
 console.log(`[erpnext-sync] Sync interval: every ${SYNC_INTERVAL_MS / 1000 / 60} minutes`);
 console.log(`[erpnext-sync] Max retries: ${MAX_RETRIES} (exponential backoff)`);
 console.log(`[erpnext-sync] Health: http://localhost:${PORT}/health`);
@@ -219,7 +235,7 @@ console.log(`[erpnext-sync] Trigger: http://localhost:${PORT}/trigger`);
 console.log(`[erpnext-sync] History: http://localhost:${PORT}/history`);
 console.log(`${"=".repeat(60)}\n`);
 
-// Graceful shutdown.
+// Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n[erpnext-sync] Shutting down gracefully...");
   if (isSyncing) {
@@ -237,11 +253,11 @@ process.on("SIGINT", () => {
   }
 });
 
-// Initial sync after 5 seconds.
+// Initial sync after 5 seconds
 setTimeout(() => {
   console.log("[erpnext-sync] Running initial sync...");
   runSync();
 }, 5000);
 
-// Schedule recurring sync.
+// Schedule recurring sync
 setInterval(() => runSync(), SYNC_INTERVAL_MS);

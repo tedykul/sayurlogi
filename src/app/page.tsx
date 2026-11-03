@@ -1,24 +1,16 @@
-import { Suspense } from "react";
+import { getPageContent } from "@/lib/page-content";
 import { HomeClient } from "./home-client";
 
 // ============================================================
-// Server component — wraps HomeClient in Suspense because
-// HomeClient uses useSearchParams() (requires Suspense boundary
-// in Next.js 16 App Router for static rendering).
+// Server component — fetches admin-editable content from DB,
+// passes as initial props to HomeClient (client component).
+// Backward compatible: if DB empty, all props null → HomeClient
+// uses hardcoded defaults (existing behavior).
 // ============================================================
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Memuat...</div>
-        </div>
-      }
-    >
-      <HomeClient />
-    </Suspense>
-  );
+export default async function HomePage() {
+  const content = await getPageContent();
+  return <HomeClient content={content} />;
 }

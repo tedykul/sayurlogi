@@ -23,7 +23,7 @@ export async function POST() {
   }
 
   try {
-    // Refresh config from DB first (in case admin just saved).
+    // Refresh config from DB first (in case admin just saved)
     await refreshConfig();
     const config = getErpConfig();
 
@@ -35,7 +35,7 @@ export async function POST() {
       });
     }
 
-    // Step 1: Ping (no auth needed).
+    // Step 1: Ping (no auth needed)
     let pingResult = "failed";
     try {
       const pingRes = await fetch(
@@ -54,7 +54,7 @@ export async function POST() {
       });
     }
 
-    // Step 2: Auth test (with token).
+    // Step 2: Auth test (with token)
     let authUser = null;
     try {
       const authRes = await fetch(

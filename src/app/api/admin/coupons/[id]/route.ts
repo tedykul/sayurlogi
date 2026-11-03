@@ -1,119 +1,130 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyAdmin, unauthorizedResponse } from "@/lib/admin-auth";
-import type { CouponType } from "@/lib/coupon-service";
+import { verifyAdmin } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-const VALID_TYPES: CouponType[] = ["percent", "fixed", "free_shipping"];
-
 // ============================================================
-// PATCH /api/admin/coupons/[id] — update coupon fields.
-// Body: partial coupon fields. code is immutable (use delete+create).
+// GET /api/admin/coupons/[id] — single coupon + usage list.
 // ============================================================
 
-export async function PATCH(
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
+  try {
+    const { id } = await params;
+    const coupon = await db.coupon.findUnique({
+      where: { id },
+      include: {
+        usages: { orderBy: { usedAt: "desc" }, take: 50 },
+      },
+    });
+    if (!coupon) {
+      return NextResponse.json({ success: false, message: "Kupon tidak ditemukan." }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, coupon });
+  } catch (err) {
+    console.error("[api/admin/coupons/[id]] GET error:", err);
+    return NextResponse.json({ success: false, message: "Server error." }, { status: 500 });
+  }
+}
+
+// ============================================================
+// PUT /api/admin/coupons/[id] — update coupon fields.
+// ============================================================
+
+export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await verifyAdmin())) return unauthorizedResponse();
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
 
     const existing = await db.coupon.findUnique({ where: { id } });
     if (!existing) {
-      return NextResponse.json(
-        { success: false, message: "Kupon tidak ditemukan." },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: "Kupon tidak ditemukan." }, { status: 404 });
     }
 
-    // Build update data — only fields present in body, validated.
+    // Build update payload from provided fields only.
     const data: Record<string, unknown> = {};
-
-    if (typeof body.type === "string") {
-      if (!VALID_TYPES.includes(body.type as CouponType)) {
-        return NextResponse.json(
-          { success: false, message: "Tipe kupon tidak valid." },
-          { status: 400 }
-        );
+    if (typeof body.code === "string") {
+      const code = body.code.trim().toUpperCase();
+      if (!code) {
+        return NextResponse.json({ success: false, message: "Kode tidak boleh kosong." }, { status: 400 });
       }
+      // uniqueness check (excluding self)
+      const clash = await db.coupon.findUnique({ where: { code } });
+      if (clash && clash.id !== id) {
+        return NextResponse.json({ success: false, message: "Kode sudah dipakai kupon lain." }, { status: 409 });
+      }
+      data.code = code;
+    }
+    if (typeof body.type === "string" && ["percent", "fixed", "free_shipping"].includes(body.type)) {
       data.type = body.type;
     }
-    if (typeof body.value === "number") {
-      const v = Math.max(0, Math.floor(body.value));
-      if (data.type === "percent" || (data.type === undefined && existing.type === "percent")) {
-        if (v < 1 || v > 100) {
-          return NextResponse.json(
-            { success: false, message: "Persen diskon harus 1-100." },
-            { status: 400 }
-          );
-        }
-      }
-      data.value = v;
-    }
+    if (typeof body.value === "number") data.value = Math.max(0, Math.floor(body.value));
     if (typeof body.minOrder === "number") data.minOrder = Math.max(0, Math.floor(body.minOrder));
     if (typeof body.maxUsage === "number") data.maxUsage = Math.max(0, Math.floor(body.maxUsage));
     if (typeof body.maxPerUser === "number") data.maxPerUser = Math.max(0, Math.floor(body.maxPerUser));
     if (typeof body.active === "boolean") data.active = body.active;
     if (typeof body.scopeType === "string") data.scopeType = body.scopeType;
-    if (body.scopeValue !== undefined) {
-      data.scopeValue = typeof body.scopeValue === "string" && body.scopeValue ? body.scopeValue : null;
-    }
-    if (typeof body.note === "string") data.note = body.note;
-    if (typeof body.description === "string") data.description = body.description;
-    if (body.startsAt !== undefined) {
+    if (body.scopeValue === null || typeof body.scopeValue === "string") data.scopeValue = body.scopeValue || null;
+    if (body.note === null || typeof body.note === "string") data.note = body.note;
+    if (body.startsAt === null || typeof body.startsAt === "string") {
       data.startsAt = body.startsAt ? new Date(body.startsAt) : null;
     }
-    if (body.expiresAt !== undefined) {
+    if (body.expiresAt === null || typeof body.expiresAt === "string") {
       data.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
     }
 
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Tidak ada field untuk diupdate." },
-        { status: 400 }
-      );
-    }
-
     const coupon = await db.coupon.update({ where: { id }, data });
+    await logAdminAction({
+      action: "coupon_update",
+      target: `coupon:${coupon.code}`,
+      success: true,
+    });
     return NextResponse.json({ success: true, coupon });
   } catch (err) {
-    console.error("[api/admin/coupons/[id]] PATCH error:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error." },
-      { status: 500 }
-    );
+    console.error("[api/admin/coupons/[id]] PUT error:", err);
+    return NextResponse.json({ success: false, message: "Server error." }, { status: 500 });
   }
 }
 
 // ============================================================
 // DELETE /api/admin/coupons/[id] — delete coupon.
-// Cascades to CouponUsage (per schema onDelete: Cascade).
 // ============================================================
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await verifyAdmin())) return unauthorizedResponse();
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const existing = await db.coupon.findUnique({ where: { id } });
     if (!existing) {
-      return NextResponse.json(
-        { success: false, message: "Kupon tidak ditemukan." },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: "Kupon tidak ditemukan." }, { status: 404 });
     }
     await db.coupon.delete({ where: { id } });
+    await logAdminAction({
+      action: "coupon_delete",
+      target: `coupon:${existing.code}`,
+      success: true,
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[api/admin/coupons/[id]] DELETE error:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: "Server error." }, { status: 500 });
   }
 }

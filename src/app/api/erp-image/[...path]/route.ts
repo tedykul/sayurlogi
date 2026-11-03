@@ -9,7 +9,8 @@ import { getErpConfig } from "@/lib/integration-config";
 // (same-origin, no CORS).
 //
 // Reads ERPNext config (URL + API key + secret) from DB
-// (IntegrationConfig table) — same source as the admin panel.
+// (IntegrationConfig table) — same source as the admin panel
+// settings.
 //
 // Browser caches the response for 30 days (immutable).
 // ============================================================
@@ -26,7 +27,9 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
-  // Read ERPNext config from DB (admin panel config), not env.
+  const imagePath = segments.join("/");
+
+  // Read ERPNext config from DB (admin panel config), not env
   const config = await getErpConfig();
   if (!config.url) {
     return new NextResponse("ERPNext not configured", { status: 503 });
@@ -34,17 +37,29 @@ export async function GET(
 
   const erpBaseUrl = config.url.replace(/\/$/, "");
 
-  // Reconstruct the path as ERPNext expects it.
-  // The sync logic (erpnext-sync.ts) rewrites "/private/files/xxx"
-  // → "/api/erp-image/private/files/xxx" and "/files/xxx"
-  // → "/api/erp-image/files/xxx".
+  // ============================================================
+  // Determine the correct ERPNext URL based on path.
+  // ============================================================
+  // If the original image path in ERPNext was "/private/files/xxx",
+  // the sync logic (erpnext-sync.ts) would have rewritten it to
+  // "/api/erp-image/private/files/xxx".
+  // So segments[0] = "private", segments[1] = "files".
+  //
+  // For public files: segments[0] = "files" (or just the filename
+  // if sync didn't prepend "files/"). We handle both.
+  // ============================================================
   let erpUrl: string;
+  
+  // Reconstruct the path as ERPNext expects it
   if (segments[0] === "private" && segments[1] === "files") {
+    // Private file: /private/files/xxx.jpg
     erpUrl = `${erpBaseUrl}/private/files/${segments.slice(2).join("/")}`;
   } else if (segments[0] === "files") {
+    // Public file: /files/xxx.jpg
     erpUrl = `${erpBaseUrl}/files/${segments.slice(1).join("/")}`;
   } else {
-    erpUrl = `${erpBaseUrl}/files/${segments.join("/")}`;
+    // Fallback: treat as public file directly
+    erpUrl = `${erpBaseUrl}/files/${imagePath}`;
   }
 
   try {
