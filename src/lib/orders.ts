@@ -131,6 +131,17 @@ export interface OrderWithItems {
   erpSalesOrderName: string | null;
   estimatedDelivery: string | null;
   statusHistory: { status: OrderStatus; timestamp: string }[];
+  /// Payment info (admin only — fetched separately, not always included).
+  /// Used by order-editor to show payment status + verify button.
+  payment?: {
+    id: string;
+    method: string;
+    status: string;
+    amount: number;
+    vaNumber: string | null;
+    vaBank: string | null;
+    paidAt: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
