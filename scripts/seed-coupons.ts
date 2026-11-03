@@ -2,50 +2,49 @@ import { db } from "@/lib/db";
 
 // ============================================================
 // seed-coupons — idempotent insert of demo coupons.
+// ============================================================
 // Run: bun run scripts/seed-coupons.ts
+// Safe to re-run: existing codes are skipped (upsert with no-op
+// update if the value/type changed — we only create when missing).
 // ============================================================
 
 const DEMO_COUPONS = [
   {
     code: "WELCOME10",
-    type: "percent" as const,
+    type: "percent",
     value: 10,
     minOrder: 0,
     maxUsage: 100,
     maxPerUser: 1,
-    description: "Diskon 10% untuk customer baru",
     note: "Diskon 10% untuk customer baru",
   },
   {
     code: "ONGKIR0",
-    type: "free_shipping" as const,
+    type: "free_shipping",
     value: 0,
     minOrder: 30000,
     maxUsage: 50,
     maxPerUser: 1,
-    description: "Gratis ongkir min belanja Rp30rb",
     note: "Gratis ongkir min belanja Rp30rb",
   },
   {
     code: "HEMAT20",
-    type: "fixed" as const,
+    type: "fixed",
     value: 20000,
     minOrder: 100000,
     maxUsage: 30,
     maxPerUser: 1,
-    description: "Potongan Rp20rb min belanja Rp100rb",
     note: "Potongan Rp20rb min belanja Rp100rb",
   },
   {
     code: "SAYUR5",
-    type: "percent" as const,
+    type: "percent",
     value: 5,
     minOrder: 0,
-    maxUsage: 0,
-    maxPerUser: 0,
+    maxUsage: 0, // unlimited
+    maxPerUser: 0, // unlimited
     scopeType: "category" as const,
     scopeValue: "Sayuran",
-    description: "Diskon 5% kategori Sayuran (unlimited demo)",
     note: "Diskon 5% kategori Sayuran (unlimited demo)",
   },
 ];
@@ -74,19 +73,18 @@ async function main() {
         scopeType: (c as { scopeType?: string }).scopeType ?? "all",
         scopeValue: (c as { scopeValue?: string }).scopeValue ?? null,
         note: c.note,
-        description: c.description,
       },
     });
     console.log(`   ✅ ${c.code} dibuat`);
     created++;
   }
 
-  console.log(`\n✨ Selesai: ${created} dibuat, ${skipped} dilewati.`);
+  console.log(`\n✅ Seed-coupons done! ${created} created, ${skipped} skipped.`);
 }
 
 main()
-  .catch((e) => {
-    console.error("❌ Seed error:", e);
+  .catch((err) => {
+    console.error("❌ Seed-coupons failed:", err);
     process.exit(1);
   })
   .finally(async () => {

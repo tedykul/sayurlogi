@@ -1,44 +1,89 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import { CookieConsent } from "@/components/grocery/cookie-consent";
+import { db } from "@/lib/db";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const jakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-jakarta-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "SayurLogi — Toko Online Sayur & Buah Segar",
-  description: "Belanja sayuran dan buah segar langsung dari petani lokal. Antar cepat, kualitas terjamin. Pakai kupon diskon dari WhatsApp!",
-  keywords: ["grocery", "sayur", "buah", "online", "segar", "kupon", "diskon"],
-  authors: [{ name: "SayurLogi" }],
-  icons: { icon: "/logo.svg" },
-  openGraph: {
-    title: "SayurLogi",
-    description: "Belanja sayur & buah segar + kupon diskon",
-    siteName: "SayurLogi",
-    type: "website",
-  },
-};
+// Dynamic metadata from DB (brand name + meta description editable via admin)
+export async function generateMetadata(): Promise<Metadata> {
+  let brandName = "SayurLogi";
+  let metaDescription = "Belanja sayuran dan buah segar langsung dari petani lokal. Antar cepat, kualitas terjamin.";
+
+  try {
+    const setting = await db.siteSetting.findUnique({ where: { id: "singleton" } });
+    if (setting) {
+      if (setting.brandName) brandName = setting.brandName;
+      if (setting.metaDescription) metaDescription = setting.metaDescription;
+    }
+  } catch {
+    // Fallback to defaults if DB unavailable
+  }
+
+  const title = `${brandName} — Toko Online Sayur & Buah Segar`;
+  return {
+    title,
+    description: metaDescription,
+    keywords: ["grocery", "sayur", "buah", "online", "segar", "toko online", "belanja sayur"],
+    authors: [{ name: brandName }],
+    icons: {
+      icon: "/logo.svg",
+      shortcut: "/logo.svg",
+      apple: "/logo.svg",
+    },
+    manifest: "/manifest.json",
+    openGraph: {
+      title,
+      description: metaDescription,
+      siteName: brandName,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: metaDescription,
+    },
+  };
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="id" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${jakartaSans.variable} ${fraunces.variable} antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster />
-        <SonnerToaster position="top-center" richColors closeButton />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster />
+          <SonnerToaster position="top-center" richColors closeButton />
+          <CookieConsent />
+        </ThemeProvider>
       </body>
     </html>
   );

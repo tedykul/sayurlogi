@@ -1,27 +1,15 @@
-import { NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/admin-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { syncAllFromErpnext } from "@/lib/erpnext-sync";
 import { db } from "@/lib/db";
-
-// ============================================================
-// Product Sync API — ERPNext → local DB sync.
-// ============================================================
-// GET  /api/admin/products/sync → sync status (lastSyncAt, source,
-//                                 totalProducts, syncedProducts)
-// POST /api/admin/products/sync → trigger manual sync (returns
-//                                 result summary)
-// ============================================================
+import { requirePermission, isAuthResult } from "@/lib/permissions";
+import { logAdminAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-// GET — light-weight sync status.
+// GET /api/admin/products/sync — get sync status
 export async function GET() {
-  if (!(await verifyAdmin())) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized." },
-      { status: 401 }
-    );
-  }
+  const auth = await requirePermission("products:read");
+  if (!isAuthResult(auth)) return auth;
 
   try {
     const [totalProducts, syncedProducts] = await Promise.all([
@@ -35,7 +23,6 @@ export async function GET() {
     });
     const lastSyncAt = latestSynced?.erpSyncedAt?.toISOString() || null;
     const source = syncedProducts > 0 ? "erpnext" : "mock";
-
     return NextResponse.json({
       success: true,
       status: {
@@ -54,19 +41,22 @@ export async function GET() {
   }
 }
 
-// POST — trigger manual sync.
+// POST /api/admin/products/sync — trigger ERPNext sync
 export async function POST() {
-  if (!(await verifyAdmin())) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized." },
-      { status: 401 }
-    );
-  }
+  const auth = await requirePermission("products:sync");
+  if (!isAuthResult(auth)) return auth;
 
   try {
     const result = await syncAllFromErpnext();
+    await logAdminAction({
+      action: "update",
+      target: `products:sync:${result.synced}/${result.total}${result.unpublished > 0 ? ` (unpublish ${result.unpublished})` : ""}`,
+      success: true,
+      userId: auth.userId,
+      userEmail: auth.email,
+    });
     return NextResponse.json({
-      success: result.success,
+      success: true,
       message: result.message,
       status: {
         lastSyncAt: result.lastSyncAt?.toISOString() || null,
