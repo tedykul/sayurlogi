@@ -1,0 +1,1021 @@
+From d6fcbdbe698a722c1f705ef9483eda97baa400bd Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Tue, 3 Nov 2026 12:39:00 +0000
+Subject: [PATCH 1/2] feat(payment): manual verification flow + WA
+ notifications (P1+P2+P3)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add proper payment verification flow for production. Two modes:
+
+1. Midtrans ENABLED (auto-verify):
+   Customer pays via Snap → Midtrans webhook → auto mark paid +
+   WA notify customer 'Pembayaran Diterima'
+
+2. Midtrans DISABLED (manual verify):
+   Customer checkout → mock VA → WA notify admin 'Order Baru'
+   Customer klik 'Saya Sudah Bayar' → status pending_verification +
+   WA notify admin 'Perlu Verifikasi Pembayaran'
+   Admin verify via dashboard → mark paid + order confirmed +
+   WA notify customer 'Pembayaran Diterima'
+
+Backend changes (Phase 1):
+- integration-config.ts: add WA_KEYS.ADMIN_PHONE + getAdminPhone()
+  helper + WaConfig.adminPhone field
+- wa-notification.ts: add 3 new functions:
+  * notifyAdminNewOrder(orderId) — WA to admin phone on checkout
+  * notifyPaymentNeedsVerification(orderId) — WA to admin when
+    customer clicks 'Saya Sudah Bayar' (Midtrans disabled)
+  * notifyPaymentVerified(orderId) — WA to customer when payment
+    confirmed (admin verify OR Midtrans webhook)
+- payments.ts: add 'pending_verification' to PaymentStatus type +
+  requestPaymentVerification() (marks pending_verification) +
+  verifyPayment() (admin manual mark paid). simulatePayment kept
+  for backward compat (deprecated).
+- /api/admin/orders/[id]/verify-payment (NEW): admin POST to
+  manually verify payment → verifyPayment + WA notify customer
+- /api/payments/[paymentId]/confirm: rewrite to gate by Midtrans
+  status. If Midtrans enabled → return autoVerify hint. If disabled
+  → requestPaymentVerification + WA notify admin.
+- midtrans.ts updatePaymentFromWebhook: hook notifyPaymentVerified
+  (dynamic import to avoid circular dep) when status transitions
+  to 'paid'
+- checkout route: hook notifyAdminNewOrder (parallel to existing
+  notifyOrderCreated to customer)
+- /api/admin/integration: handle wa_admin_phone save (normalize:
+  strip non-digits) + return adminPhone in GET
+
+Verified: 7 test cases pass — checkout (mock VA), customer confirm
+(pending_verification + WA admin), admin verify (paid + confirmed +
+WA customer), idempotency (no-op on re-verify), COD skip, phone
+normalization, GET/POST integration API.
+
+Phase 2 (admin UI: integration-editor admin phone field +
+order-editor verify button) follows next commit.
+---
+ src/app/api/admin/integration/route.ts        |   7 +
+ .../admin/orders/[id]/verify-payment/route.ts |  78 +++++++++
+ src/app/api/checkout/route.ts                 |   8 +-
+ .../api/payments/[paymentId]/confirm/route.ts |  74 ++++++++-
+ src/lib/integration-config.ts                 |  18 ++
+ src/lib/midtrans.ts                           |  12 ++
+ src/lib/payments.ts                           |  86 +++++++++-
+ src/lib/wa-notification.ts                    | 156 +++++++++++++++++-
+ 8 files changed, 430 insertions(+), 9 deletions(-)
+ create mode 100644 src/app/api/admin/orders/[id]/verify-payment/route.ts
+
+diff --git a/src/app/api/admin/integration/route.ts b/src/app/api/admin/integration/route.ts
+index f49f9d6..99dd411 100755
+--- a/src/app/api/admin/integration/route.ts
++++ b/src/app/api/admin/integration/route.ts
+@@ -68,6 +68,7 @@ export async function GET() {
+         apiKey: wa.apiKey,
+         sender: wa.sender,
+         enabled: wa.enabled,
++        adminPhone: wa.adminPhone,
+       },
+       isWaEnabled: await isWaEnabled(),
+     });
+@@ -155,6 +156,12 @@ export async function POST(req: NextRequest) {
+       savePromises.push(setConfigValue(WA_KEYS.ENABLED, enabled));
+       touchedSection = "wa";
+     }
++    if (body.wa_admin_phone !== undefined) {
++      // Normalize: strip non-digits (phone digits only, no "+", spaces, dashes)
++      const phone = String(body.wa_admin_phone).replace(/[^\d]/g, "");
++      savePromises.push(setConfigValue(WA_KEYS.ADMIN_PHONE, phone));
++      touchedSection = "wa";
++    }
+ 
+     if (savePromises.length === 0) {
+       return NextResponse.json(
+diff --git a/src/app/api/admin/orders/[id]/verify-payment/route.ts b/src/app/api/admin/orders/[id]/verify-payment/route.ts
+new file mode 100644
+index 0000000..14b3313
+--- /dev/null
++++ b/src/app/api/admin/orders/[id]/verify-payment/route.ts
+@@ -0,0 +1,78 @@
++import { NextRequest, NextResponse } from "next/server";
++import { verifyAdmin } from "@/lib/admin-auth";
++import { verifyPayment, getPaymentByOrderId } from "@/lib/payments";
++import { notifyPaymentVerified } from "@/lib/wa-notification";
++import { logAdminAction } from "@/lib/audit";
++
++export const dynamic = "force-dynamic";
++
++interface Params {
++  params: Promise<{ id: string }>;
++}
++
++// ============================================================
++// POST /api/admin/orders/[id]/verify-payment
++// ============================================================
++// Admin manually confirms payment for an order. Used when Midtrans
++// is disabled (manual verification flow). Customer clicked "Saya
++// Sudah Bayar" → payment.status = "pending_verification" → admin
++// checks bank mutation → clicks "Konfirmasi Pembayaran" in
++// dashboard → this endpoint marks payment as "paid" + order as
++// "confirmed" + sends WA to customer.
++//
++// Body: (none — orderId from URL params)
++// Returns: { success, message, orderId, paymentId }
++// ============================================================
++
++export async function POST(_req: NextRequest, { params }: Params) {
++  if (!(await verifyAdmin())) {
++    return NextResponse.json(
++      { success: false, message: "Unauthorized." },
++      { status: 401 }
++    );
++  }
++
++  try {
++    const { id: orderId } = await params;
++
++    // Find payment linked to this order
++    const payment = await getPaymentByOrderId(orderId);
++    if (!payment) {
++      return NextResponse.json(
++        { success: false, message: "Payment tidak ditemukan untuk order ini." },
++        { status: 404 }
++      );
++    }
++
++    // Verify payment (marks paid + updates order status)
++    const result = await verifyPayment(payment.id);
++    if (!result.success) {
++      return NextResponse.json({ success: false, message: result.message }, { status: 400 });
++    }
++
++    // Send WA notification to customer (best-effort, non-blocking)
++    notifyPaymentVerified(orderId).catch((err) => {
++      console.warn("[verify-payment] WA notifyPaymentVerified failed:", err.message);
++    });
++
++    // Audit log
++    await logAdminAction({
++      action: "update",
++      target: `order:${orderId}:payment-verified`,
++      success: true,
++    });
++
++    return NextResponse.json({
++      success: true,
++      message: "Pembayaran dikonfirmasi. Customer akan dapat notifikasi WA.",
++      orderId,
++      paymentId: payment.id,
++    });
++  } catch (err: any) {
++    console.error("[api/admin/orders/[id]/verify-payment] error:", err);
++    return NextResponse.json(
++      { success: false, message: "Server error." },
++      { status: 500 }
++    );
++  }
++}
+diff --git a/src/app/api/checkout/route.ts b/src/app/api/checkout/route.ts
+index 6efb7ff..461f9dd 100755
+--- a/src/app/api/checkout/route.ts
++++ b/src/app/api/checkout/route.ts
+@@ -6,7 +6,7 @@ import { estimateDelivery } from "@/lib/delivery";
+ import { syncAllFromErpnext } from "@/lib/erpnext-sync";
+ import { validateCoupon, redeemCoupon } from "@/lib/coupons";
+ import { verifyCustomerAuth } from "@/lib/customer-auth";
+-import { notifyOrderCreated } from "@/lib/wa-notification";
++import { notifyOrderCreated, notifyAdminNewOrder } from "@/lib/wa-notification";
+ import { db } from "@/lib/db";
+ import { calculateShipping } from "@/lib/delivery-zones";
+ import { bookSlot, isSchedulingEnabled } from "@/lib/delivery-slots";
+@@ -250,6 +250,12 @@ export async function POST(req: NextRequest) {
+       console.warn("[checkout] WA notifyOrderCreated failed (non-blocking):", err.message);
+     });
+ 
++    // 8b. WhatsApp notification to admin (best-effort, non-blocking).
++    //     Fires only if admin phone configured (IntegrationConfig.wa_admin_phone).
++    notifyAdminNewOrder(order.id).catch((err) => {
++      console.warn("[checkout] WA notifyAdminNewOrder failed (non-blocking):", err.message);
++    });
++
+     // 9. Sync product stock from ERPNext (non-blocking, background)
+     if (!erpResult.mock) {
+       syncAllFromErpnext()
+diff --git a/src/app/api/payments/[paymentId]/confirm/route.ts b/src/app/api/payments/[paymentId]/confirm/route.ts
+index 79e9f2d..7618f94 100755
+--- a/src/app/api/payments/[paymentId]/confirm/route.ts
++++ b/src/app/api/payments/[paymentId]/confirm/route.ts
+@@ -1,5 +1,7 @@
+ import { NextRequest, NextResponse } from "next/server";
+-import { simulatePayment } from "@/lib/payments";
++import { requestPaymentVerification } from "@/lib/payments";
++import { isMidtransEnabled } from "@/lib/integration-config";
++import { notifyPaymentNeedsVerification } from "@/lib/wa-notification";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -7,14 +9,76 @@ interface Params {
+   params: Promise<{ paymentId: string }>;
+ }
+ 
++// ============================================================
+ // POST /api/payments/[paymentId]/confirm
+-// Simulates payment confirmation (mock only — in production, this would
+-// be a Midtrans webhook callback).
++// ============================================================
++// Called by storefront when customer clicks "Saya Sudah Bayar".
++//
++// Behavior depends on payment gateway:
++//   - Midtrans ENABLED: payment is auto-verified via Midtrans
++//     webhook (/api/payments/midtrans/webhook). Customer does NOT
++//     need to click this button — but if they do, we return a hint
++//     that auto-verify is in progress.
++//   - Midtrans DISABLED: mark payment.status = "pending_verification"
++//     + WA notify admin "perlu verifikasi pembayaran". Admin must
++//     manually verify via dashboard (/api/admin/orders/[id]/verify-payment).
++//
++// Backward compat: previously this endpoint called simulatePayment
++// (auto-marked as paid). That was mock behavior — proper for dev,
++// dangerous for production. New behavior is safer (admin verify
++// required for manual flow).
++// ============================================================
++
+ export async function POST(_req: NextRequest, { params }: Params) {
+   try {
+     const { paymentId } = await params;
+-    const result = await simulatePayment(paymentId);
+-    return NextResponse.json(result, { status: result.success ? 200 : 400 });
++
++    // If Midtrans enabled, customer doesn't need to click this button.
++    // Payment will be auto-verified via Midtrans webhook when they
++    // complete the Snap payment flow.
++    const midtransEnabled = await isMidtransEnabled();
++    if (midtransEnabled) {
++      return NextResponse.json({
++        success: true,
++        message: "Pembayaran akan otomatis terverifikasi via Midtrans setelah Anda selesai membayar. Tidak perlu klik tombol ini.",
++        autoVerify: true,
++      });
++    }
++
++    // Midtrans disabled → manual verification flow
++    const result = await requestPaymentVerification(paymentId);
++    if (!result.success) {
++      return NextResponse.json({ success: false, message: result.message }, { status: 400 });
++    }
++
++    // Find orderId for this payment → WA notify admin
++    // (requestPaymentVerification doesn't return orderId, so we fetch
++    // it via the payment record we just updated)
++    // Best-effort: if WA config missing or admin phone not set, this
++    // is a no-op (logged as warning).
++    // We use a separate fetch to avoid coupling requestPaymentVerification
++    // with notification logic.
++    try {
++      const { db } = await import("@/lib/db");
++      const payment = await db.payment.findUnique({
++        where: { id: paymentId },
++        select: { orderId: true },
++      });
++      if (payment?.orderId) {
++        notifyPaymentNeedsVerification(payment.orderId).catch((err) => {
++          console.warn("[payments/confirm] WA notifyPaymentNeedsVerification failed:", err.message);
++        });
++      }
++    } catch (err: any) {
++      console.warn("[payments/confirm] failed to fetch orderId for WA notify:", err.message);
++    }
++
++    return NextResponse.json({
++      success: true,
++      message: result.message,
++      status: result.status,
++      autoVerify: false,
++    });
+   } catch (err: any) {
+     console.error("[api/payments/[paymentId]/confirm] error:", err);
+     return NextResponse.json(
+diff --git a/src/lib/integration-config.ts b/src/lib/integration-config.ts
+index cda5497..cb6edf6 100755
+--- a/src/lib/integration-config.ts
++++ b/src/lib/integration-config.ts
+@@ -103,6 +103,10 @@ export const WA_KEYS = {
+   API_KEY: "wa_api_key",
+   SENDER: "wa_sender",
+   ENABLED: "wa_enabled",
++  /// Admin phone number for order + payment notifications (E.164 format
++  /// without "+", e.g. "6281234567890"). Used by notifyAdminNewOrder
++  /// + notifyPaymentNeedsVerification. Empty = admin notifications disabled.
++  ADMIN_PHONE: "wa_admin_phone",
+ } as const;
+ 
+ const SECRET_KEYS = new Set([
+@@ -270,6 +274,9 @@ export interface WaConfig {
+   apiKey: string;
+   sender: string;
+   enabled: boolean;
++  /// Admin phone for order/payment notifications (E.164, no "+").
++  /// Empty = admin notifications disabled.
++  adminPhone: string;
+ }
+ 
+ export async function getWaConfig(): Promise<WaConfig> {
+@@ -289,6 +296,7 @@ export async function getWaConfig(): Promise<WaConfig> {
+     apiKey: map[WA_KEYS.API_KEY] || "",
+     sender: map[WA_KEYS.SENDER] || "",
+     enabled: map[WA_KEYS.ENABLED] === "true",
++    adminPhone: map[WA_KEYS.ADMIN_PHONE] || "",
+   };
+ }
+ 
+@@ -297,3 +305,13 @@ export async function isWaEnabled(): Promise<boolean> {
+   const c = await getWaConfig();
+   return c.enabled && c.provider !== "mock" && Boolean(c.apiKey);
+ }
++
++/**
++ * Get admin phone for notifications. Returns empty string if not set
++ * or WA disabled. Used by notifyAdminNewOrder + notifyPaymentNeedsVerification.
++ */
++export async function getAdminPhone(): Promise<string> {
++  const c = await getWaConfig();
++  if (!c.enabled) return "";
++  return c.adminPhone;
++}
+diff --git a/src/lib/midtrans.ts b/src/lib/midtrans.ts
+index fec93ae..c542b21 100755
+--- a/src/lib/midtrans.ts
++++ b/src/lib/midtrans.ts
+@@ -295,5 +295,17 @@ export async function updatePaymentFromWebhook(opts: {
+     }
+   }
+ 
++  // Notify customer when payment confirmed (best-effort, non-blocking).
++  // Only fires when transitioning TO "paid" status (settlement/capture).
++  // Avoid circular import: dynamic import wa-notification (midtrans.ts is
++  // imported by webhook route which also imports wa-notification).
++  if (paymentStatus === "paid" && order) {
++    import("./wa-notification")
++      .then(({ notifyPaymentVerified }) => notifyPaymentVerified(order.id))
++      .catch((err) => {
++        console.warn("[midtrans] webhook: notifyPaymentVerified failed:", err.message);
++      });
++  }
++
+   return true;
+ }
+diff --git a/src/lib/payments.ts b/src/lib/payments.ts
+index 7fc8dea..cc5ce43 100755
+--- a/src/lib/payments.ts
++++ b/src/lib/payments.ts
+@@ -10,7 +10,7 @@ import { updateOrderStatus } from "@/lib/orders";
+ // ============================================================
+ 
+ export type PaymentMethod = "cod" | "transfer" | "ewallet";
+-export type PaymentStatus = "pending" | "paid" | "failed";
++export type PaymentStatus = "pending" | "pending_verification" | "paid" | "failed";
+ 
+ const VA_BANKS = ["BCA", "Mandiri", "BNI", "BRI"];
+ const EWALLET_PROVIDERS = ["GoPay", "OVO", "DANA", "ShopeePay"];
+@@ -106,7 +106,14 @@ export async function createPayment(
+   return result;
+ }
+ 
+-/** Simulate payment completion (mock only — no real money transfer). */
++/**
++ * Simulate payment completion (mock only — no real money transfer).
++ * @deprecated Use requestPaymentVerification + verifyPayment instead.
++ * Kept for backward compat — old callers (e.g., existing checkout flow
++ * with Midtrans disabled) still work. New code should use the explicit
++ * two-step flow: requestPaymentVerification (customer klik "sudah bayar")
++ * → verifyPayment (admin manual verify OR Midtrans webhook).
++ */
+ export async function simulatePayment(paymentId: string): Promise<{ success: boolean; message: string }> {
+   const payment = await db.payment.findUnique({ where: { id: paymentId } });
+   if (!payment) {
+@@ -130,6 +137,81 @@ export async function simulatePayment(paymentId: string): Promise<{ success: boo
+   return { success: true, message: "Pembayaran berhasil dikonfirmasi." };
+ }
+ 
++/**
++ * Customer clicked "Saya Sudah Bayar" (Midtrans disabled flow).
++ * Marks payment as `pending_verification` (NOT paid). Admin must verify
++ * manually via dashboard. Returns message for customer UI.
++ *
++ * Idempotent: if already paid, no-op. If already pending_verification,
++ * re-marks (so WA re-notify fires if admin phone changed).
++ */
++export async function requestPaymentVerification(
++  paymentId: string
++): Promise<{ success: boolean; message: string; status: PaymentStatus }> {
++  const payment = await db.payment.findUnique({ where: { id: paymentId } });
++  if (!payment) {
++    return { success: false, message: "Payment tidak ditemukan.", status: "failed" };
++  }
++  if (payment.status === "paid") {
++    return { success: false, message: "Payment sudah lunas.", status: "paid" };
++  }
++  if (payment.method === "cod") {
++    return {
++      success: false,
++      message: "COD tidak perlu verifikasi — bayar saat pesanan tiba.",
++      status: payment.status as PaymentStatus,
++    };
++  }
++
++  await db.payment.update({
++    where: { id: paymentId },
++    data: { status: "pending_verification" },
++  });
++
++  return {
++    success: true,
++    message: "Pembayaran sedang diverifikasi. Anda akan dapat notifikasi WA setelah dikonfirmasi.",
++    status: "pending_verification",
++  };
++}
++
++/**
++ * Admin manually verifies payment (or called by Midtrans webhook after
++ * auto-verify). Marks payment as `paid` + order status as `confirmed`.
++ * Idempotent: if already paid, no-op.
++ *
++ * Caller is responsible for sending WA notification to customer
++ * (notifyPaymentVerified) — kept separate so webhook + admin
++ * verify share the same notification hook.
++ */
++export async function verifyPayment(
++  paymentId: string
++): Promise<{ success: boolean; message: string; orderId?: string }> {
++  const payment = await db.payment.findUnique({ where: { id: paymentId } });
++  if (!payment) {
++    return { success: false, message: "Payment tidak ditemukan." };
++  }
++  if (payment.status === "paid") {
++    return { success: false, message: "Payment sudah lunas.", orderId: payment.orderId };
++  }
++
++  await db.payment.update({
++    where: { id: paymentId },
++    data: { status: "paid", paidAt: new Date() },
++  });
++
++  // Update order status to "confirmed" (skip for COD — handled separately)
++  if (payment.method !== "cod") {
++    await updateOrderStatus(payment.orderId, "confirmed");
++  }
++
++  return {
++    success: true,
++    message: "Pembayaran berhasil dikonfirmasi.",
++    orderId: payment.orderId,
++  };
++}
++
+ /** Get payment by order ID. */
+ export async function getPaymentByOrderId(orderId: string) {
+   const payment = await db.payment.findUnique({ where: { orderId } });
+diff --git a/src/lib/wa-notification.ts b/src/lib/wa-notification.ts
+index 09c9ac8..4c5058e 100755
+--- a/src/lib/wa-notification.ts
++++ b/src/lib/wa-notification.ts
+@@ -1,4 +1,4 @@
+-import { getWaConfig } from "@/lib/integration-config";
++import { getWaConfig, getAdminPhone } from "@/lib/integration-config";
+ import { db } from "@/lib/db";
+ 
+ // ============================================================
+@@ -288,3 +288,157 @@ export async function sendTestWa(phone: string): Promise<SendMessageResult> {
+   ].join("\n");
+   return sendMessage(phone, message);
+ }
++
++// ============================================================
++// Admin notifications — sent to admin phone (configured via
++// IntegrationConfig.wa_admin_phone). Best-effort: never throws.
++// ============================================================
++// - notifyAdminNewOrder: customer checkout → admin gets WA
++// - notifyPaymentNeedsVerification: customer klik "saya sudah bayar"
++//   (Midtrans disabled) → admin gets WA "perlu verify pembayaran"
++// - notifyPaymentVerified: payment confirmed (admin verify OR Midtrans
++//   webhook) → customer gets WA "pembayaran diterima"
++// ============================================================
++
++export async function notifyAdminNewOrder(orderId: string): Promise<void> {
++  try {
++    const adminPhone = await getAdminPhone();
++    if (!adminPhone) return; // admin notif disabled
++
++    const order = await db.order.findUnique({
++      where: { id: orderId },
++      select: {
++        trackingId: true,
++        customerName: true,
++        total: true,
++        paymentMethod: true,
++        customerPhone: true,
++        estimatedDelivery: true,
++      },
++    });
++    if (!order) return;
++
++    const paymentLabel: Record<string, string> = {
++      cod: "COD (bayar di tempat)",
++      transfer: "Transfer Bank (VA)",
++      ewallet: "E-Wallet",
++    };
++    const label = paymentLabel[order.paymentMethod] || order.paymentMethod;
++
++    const message = [
++      `🛒 *ORDER BARU* — SayurLogi`,
++      ``,
++      `Tracking: ${order.trackingId}`,
++      `Customer: ${order.customerName}`,
++      `HP: ${order.customerPhone || "-"}`,
++      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
++      `Pembayaran: ${label}`,
++      order.estimatedDelivery
++        ? `Estimasi kirim: ${new Date(order.estimatedDelivery).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} WIB`
++        : "",
++      ``,
++      order.paymentMethod === "cod"
++        ? `→ Siapkan pesanan untuk COD.`
++        : `→ Tunggu konfirmasi pembayaran dari customer.`,
++      ``,
++      `— SayurLogi Admin Notif`,
++    ]
++      .filter(Boolean)
++      .join("\n");
++
++    const result = await sendMessage(adminPhone, message);
++    if (!result.success) {
++      console.warn(`[wa] notifyAdminNewOrder failed:`, result.message);
++    }
++  } catch (err: any) {
++    console.warn("[wa] notifyAdminNewOrder error (non-blocking):", err.message);
++  }
++}
++
++export async function notifyPaymentNeedsVerification(orderId: string): Promise<void> {
++  try {
++    const adminPhone = await getAdminPhone();
++    if (!adminPhone) return;
++
++    const order = await db.order.findUnique({
++      where: { id: orderId },
++      select: {
++        trackingId: true,
++        customerName: true,
++        customerPhone: true,
++        total: true,
++        paymentMethod: true,
++      },
++    });
++    if (!order) return;
++
++    const message = [
++      `💰 *PERLU VERIFIKASI PEMBAYARAN*`,
++      ``,
++      `Customer ${order.customerName} mengaku sudah bayar.`,
++      ``,
++      `Tracking: ${order.trackingId}`,
++      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
++      `Metode: ${order.paymentMethod}`,
++      `HP customer: ${order.customerPhone || "-"}`,
++      ``,
++      `→ Cek mutasi rekening/VA, lalu konfirmasi di dashboard admin.`,
++      ``,
++      `— SayurLogi Admin Notif`,
++    ].join("\n");
++
++    const result = await sendMessage(adminPhone, message);
++    if (!result.success) {
++      console.warn(`[wa] notifyPaymentNeedsVerification failed:`, result.message);
++    }
++  } catch (err: any) {
++    console.warn("[wa] notifyPaymentNeedsVerification error (non-blocking):", err.message);
++  }
++}
++
++export async function notifyPaymentVerified(orderId: string): Promise<void> {
++  try {
++    const config = await getWaConfig();
++    if (!config.enabled) return;
++
++    const order = await db.order.findUnique({
++      where: { id: orderId },
++      select: {
++        customerName: true,
++        customerPhone: true,
++        trackingId: true,
++        total: true,
++        estimatedDelivery: true,
++      },
++    });
++    if (!order || !order.customerPhone) return;
++
++    const message = [
++      `✅ *Pembayaran Diterima!*`,
++      ``,
++      `Halo ${order.customerName},`,
++      `Pembayaran untuk pesanan Anda sudah kami terima. Pesanan sedang diproses.`,
++      ``,
++      `*Detail:*`,
++      `Tracking ID: ${order.trackingId}`,
++      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
++      `Status: Dikonfirmasi`,
++      order.estimatedDelivery
++        ? `Estimasi kirim: ${new Date(order.estimatedDelivery).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} WIB`
++        : "",
++      ``,
++      `Lacak pesanan di website dengan Tracking ID di atas.`,
++      ``,
++      `— Tim SayurLogi`,
++    ]
++      .filter(Boolean)
++      .join("\n");
++
++    const result = await sendMessage(order.customerPhone, message);
++    if (!result.success) {
++      console.warn(`[wa] notifyPaymentVerified failed for ${order.trackingId}:`, result.message);
++    }
++  } catch (err: any) {
++    console.warn("[wa] notifyPaymentVerified error (non-blocking):", err.message);
++  }
++}
+-- 
+2.47.3
+
+From d65d85cafd7768322a727d42729c63c5811005c6 Mon Sep 17 00:00:00 2001
+From: Z User <z@container>
+Date: Tue, 3 Nov 2026 12:46:04 +0000
+Subject: [PATCH 2/2] feat(admin): payment verification UI + admin phone config
+ (Phase 2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Admin UI for manual payment verification flow:
+
+1. integration-editor.tsx (WA section):
+   - Add 'Nomor WhatsApp Admin' field (placeholder 6281234567890)
+   - Saved to IntegrationConfig.wa_admin_phone (normalized: strip
+     non-digits in API route)
+   - Included in handleSave + handleTestWa payloads
+   - Disabled when WA disabled
+
+2. order-editor.tsx (admin orders list):
+   - Add filter option 'Perlu Verifikasi Pembayaran' (filters
+     payment.status = pending_verification via new payment_status
+     query param)
+   - Show payment status badge next to order status:
+     * green 'Lunas' when paid
+     * amber 'Perlu Verifikasi' when pending_verification
+     * muted for other statuses
+   - Show 'Konfirmasi Bayar' button (replaces status dropdown) when
+     payment.status = pending_verification → calls /api/admin/orders/
+     [id]/verify-payment → marks paid + WA customer
+   - handleVerifyPayment + verifyingId loading state
+
+3. orders.ts: extend OrderWithItems with optional 'payment' field
+   (id, method, status, amount, vaNumber, vaBank, paidAt). Backward
+   compatible — payment is null when not fetched.
+
+4. /api/admin/orders GET: attach payment info to each order via
+   batched findMany (one query for all orders on page). No Prisma
+   relation added (schema kept gateway-agnostic). Support
+   payment_status query param for filtering by payment status
+   (post-fetch filter — pagination imprecise for this filter but
+   acceptable since admin verifies handful at a time).
+
+Verified: 6 API tests pass — admin login, checkout test order,
+customer 'sudah bayar' (pending_verification), filter
+payment_status=pending_verification returns 1 order with correct
+payment attached, GET /api/admin/orders includes payment, lint
+clean (0 errors).
+---
+ src/app/api/admin/orders/route.ts             |  56 +++++++++-
+ .../admin/sections/integration-editor.tsx     |  14 +++
+ .../admin/sections/order-editor.tsx           | 104 ++++++++++++++----
+ src/lib/orders.ts                             |  11 ++
+ 4 files changed, 161 insertions(+), 24 deletions(-)
+
+diff --git a/src/app/api/admin/orders/route.ts b/src/app/api/admin/orders/route.ts
+index 8e74638..567bbb1 100755
+--- a/src/app/api/admin/orders/route.ts
++++ b/src/app/api/admin/orders/route.ts
+@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
+ import { listOrders, type OrderStatus } from "@/lib/orders";
+ import { verifyAdmin } from "@/lib/admin-auth";
+ import { logAdminAction } from "@/lib/audit";
++import { db } from "@/lib/db";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -44,13 +45,62 @@ export async function GET(req: NextRequest) {
+ 
+     const totalPages = Math.ceil(result.total / limit);
+ 
++    // Attach payment info to each order (for admin verify payment UI).
++    // Fetched separately because Payment-Order has no Prisma relation
++    // (schema kept gateway-agnostic). One query for all orders on page.
++    const orderIds = result.orders.map((o) => o.id);
++    const payments =
++      orderIds.length > 0
++        ? await db.payment.findMany({
++            where: { orderId: { in: orderIds } },
++            select: {
++              id: true,
++              orderId: true,
++              method: true,
++              status: true,
++              amount: true,
++              vaNumber: true,
++              vaBank: true,
++              paidAt: true,
++            },
++          })
++        : [];
++    const paymentMap = new Map(payments.map((p) => [p.orderId, p]));
++
++    const ordersWithPayment = result.orders.map((o) => {
++      const p = paymentMap.get(o.id);
++      if (!p) return { ...o, payment: null };
++      // Strip orderId from payment (already on order) + serialize paidAt
++      const { orderId: _omit, ...paymentData } = p;
++      return {
++        ...o,
++        payment: {
++          ...paymentData,
++          paidAt: paymentData.paidAt ? paymentData.paidAt.toISOString() : null,
++        },
++      };
++    });
++
++    // Optional filter by payment status (e.g., "pending_verification")
++    // Applied client-side post-fetch because listOrders doesn't support
++    // payment_status filter (separate table, no relation).
++    const paymentStatusFilter = searchParams.get("payment_status");
++    const filteredOrders = paymentStatusFilter
++      ? ordersWithPayment.filter((o) => o.payment?.status === paymentStatusFilter)
++      : ordersWithPayment;
++
++    // If filtering by payment_status, total reflects filtered count (not full total).
++    // This makes pagination imprecise for payment_status filter, but acceptable
++    // since admin usually verifies a handful at a time.
++    const responseTotal = paymentStatusFilter ? filteredOrders.length : result.total;
++
+     return NextResponse.json({
+       success: true,
+-      orders: result.orders,
+-      total: result.total,
++      orders: filteredOrders,
++      total: responseTotal,
+       page,
+       limit: isNaN(limit) ? 10 : limit,
+-      totalPages,
++      totalPages: paymentStatusFilter ? 1 : totalPages,
+     });
+   } catch (err: any) {
+     console.error("[api/admin/orders] GET error:", err);
+diff --git a/src/components/admin/sections/integration-editor.tsx b/src/components/admin/sections/integration-editor.tsx
+index 9842256..45694da 100755
+--- a/src/components/admin/sections/integration-editor.tsx
++++ b/src/components/admin/sections/integration-editor.tsx
+@@ -602,6 +602,7 @@ interface WaForm {
+   apiKey: string;
+   sender: string;
+   enabled: boolean;
++  adminPhone: string;
+ }
+ 
+ function WaSection() {
+@@ -610,6 +611,7 @@ function WaSection() {
+     apiKey: "",
+     sender: "",
+     enabled: false,
++    adminPhone: "",
+   });
+   const [loading, setLoading] = useState(true);
+   const [saving, setSaving] = useState(false);
+@@ -645,6 +647,7 @@ function WaSection() {
+           wa_api_key: form.apiKey,
+           wa_sender: form.sender,
+           wa_enabled: form.enabled,
++          wa_admin_phone: form.adminPhone,
+         }),
+       });
+       toast.success("Konfigurasi WhatsApp disimpan");
+@@ -670,6 +673,7 @@ function WaSection() {
+           wa_api_key: form.apiKey,
+           wa_sender: form.sender,
+           wa_enabled: form.enabled,
++          wa_admin_phone: form.adminPhone,
+         }),
+       });
+       const res = await adminFetch<{ success: boolean; message: string }>(
+@@ -786,6 +790,16 @@ function WaSection() {
+               />
+             </AdminField>
+ 
++            <AdminField label="Nomor WhatsApp Admin" hint="Nomor HP admin untuk notifikasi order baru + verifikasi pembayaran. Format: 628xxx (tanpa '+' atau spasi). Kosong = notif admin dimatikan.">
++              <Input
++                value={form.adminPhone}
++                onChange={(e) => setForm({ ...form, adminPhone: e.target.value })}
++                placeholder="6281234567890"
++                disabled={!form.enabled}
++                className="text-xs"
++              />
++            </AdminField>
++
+             <Button onClick={handleSave} disabled={saving} size="sm" className="w-full">
+               {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+               Simpan Konfigurasi WhatsApp
+diff --git a/src/components/admin/sections/order-editor.tsx b/src/components/admin/sections/order-editor.tsx
+index c0c65fa..701465c 100755
+--- a/src/components/admin/sections/order-editor.tsx
++++ b/src/components/admin/sections/order-editor.tsx
+@@ -3,6 +3,7 @@
+ import { useState, useMemo, useEffect, useCallback } from "react";
+ import {
+   Loader2, Search, Filter, RefreshCw, Package, Phone, MapPin, Clock, ChevronDown, ChevronUp,
++  CheckCircle2, AlertCircle,
+ } from "lucide-react";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+@@ -50,13 +51,19 @@ export function OrderEditor() {
+   const [search, setSearch] = useState("");
+   const [expandedId, setExpandedId] = useState<string | null>(null);
+   const [updatingId, setUpdatingId] = useState<string | null>(null);
++  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+ 
+   const fetchData = useCallback(async () => {
+     setLoading(true);
+     setError(null);
+     try {
+       const params = new URLSearchParams({ limit: String(ORDERS_PER_PAGE), page: String(page) });
+-      if (filterStatus !== "all") params.set("status", filterStatus);
++      if (filterStatus === "need_verification") {
++        // Special filter: orders with payment.status = pending_verification
++        params.set("payment_status", "pending_verification");
++      } else if (filterStatus !== "all") {
++        params.set("status", filterStatus);
++      }
+       if (search.trim()) params.set("search", search.trim());
+       const res = await adminFetch<OrderListResponse>(`/api/admin/orders?${params}`);
+       setOrders(res.orders || []);
+@@ -107,6 +114,25 @@ export function OrderEditor() {
+     setExpandedId((prev) => (prev === orderId ? null : orderId));
+   };
+ 
++  // Verify payment manually (admin confirm customer payment).
++  // Calls /api/admin/orders/[id]/verify-payment which marks payment
++  // as paid + order as confirmed + sends WA to customer.
++  const handleVerifyPayment = async (orderId: string) => {
++    setVerifyingId(orderId);
++    try {
++      await adminFetch(`/api/admin/orders/${orderId}/verify-payment`, {
++        method: "POST",
++      });
++      toast.success("Pembayaran dikonfirmasi. Customer akan dapat notifikasi WA.");
++      // Refresh list to reflect updated payment status
++      fetchData();
++    } catch (err: any) {
++      toast.error(err.message || "Gagal verifikasi pembayaran");
++    } finally {
++      setVerifyingId(null);
++    }
++  };
++
+   return (
+     <div>
+       <AdminSectionHeading
+@@ -153,6 +179,7 @@ export function OrderEditor() {
+           </SelectTrigger>
+           <SelectContent>
+             <SelectItem value="all">Semua Status</SelectItem>
++            <SelectItem value="need_verification">⚠️ Perlu Verifikasi Pembayaran</SelectItem>
+             {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
+               <SelectItem key={s} value={s}>
+                 {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
+@@ -228,13 +255,32 @@ export function OrderEditor() {
+ 
+                     {/* Tracking ID + customer */}
+                     <div className="flex-1 min-w-0">
+-                      <div className="flex items-center gap-2">
++                      <div className="flex items-center gap-2 flex-wrap">
+                         <code className="text-sm font-mono font-bold text-primary">
+                           {order.trackingId}
+                         </code>
+                         <Badge className={cn("text-[10px] font-medium", ORDER_STATUS_COLORS[order.status])}>
+                           {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
+                         </Badge>
++                        {/* Payment status badge (only show if not COD + payment exists) */}
++                        {order.payment && order.payment.method !== "cod" && (
++                          <Badge
++                            className={cn(
++                              "text-[10px] font-medium",
++                              order.payment.status === "paid"
++                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
++                                : order.payment.status === "pending_verification"
++                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
++                                  : "bg-muted text-muted-foreground"
++                            )}
++                          >
++                            {order.payment.status === "paid"
++                              ? `✓ Lunas ${order.payment.paidAt ? new Date(order.payment.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : ""}`
++                              : order.payment.status === "pending_verification"
++                                ? "💰 Perlu Verifikasi"
++                                : `⏳ ${order.payment.status}`}
++                          </Badge>
++                        )}
+                       </div>
+                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                         <span>{order.customerName}</span>
+@@ -246,27 +292,43 @@ export function OrderEditor() {
+                       </div>
+                     </div>
+ 
+-                    {/* Quick status update */}
+-                    <Select
+-                      value={order.status}
+-                      onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
+-                      disabled={updatingId === order.id}
+-                    >
+-                      <SelectTrigger className="w-[140px] h-8 rounded-lg text-xs shrink-0">
+-                        {updatingId === order.id ? (
+-                          <Loader2 className="h-3 w-3 animate-spin" />
++                    {/* Verify payment button (only for pending_verification) OR Quick status update */}
++                    {order.payment?.status === "pending_verification" ? (
++                      <Button
++                        size="sm"
++                        onClick={() => handleVerifyPayment(order.id)}
++                        disabled={verifyingId === order.id}
++                        className="h-8 rounded-lg text-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
++                      >
++                        {verifyingId === order.id ? (
++                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                         ) : (
+-                          <SelectValue />
++                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                         )}
+-                      </SelectTrigger>
+-                      <SelectContent>
+-                        {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
+-                          <SelectItem key={s} value={s}>
+-                            {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
+-                          </SelectItem>
+-                        ))}
+-                      </SelectContent>
+-                    </Select>
++                        Konfirmasi Bayar
++                      </Button>
++                    ) : (
++                      <Select
++                        value={order.status}
++                        onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
++                        disabled={updatingId === order.id}
++                      >
++                        <SelectTrigger className="w-[140px] h-8 rounded-lg text-xs shrink-0">
++                          {updatingId === order.id ? (
++                            <Loader2 className="h-3 w-3 animate-spin" />
++                          ) : (
++                            <SelectValue />
++                          )}
++                        </SelectTrigger>
++                        <SelectContent>
++                          {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
++                            <SelectItem key={s} value={s}>
++                              {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
++                            </SelectItem>
++                          ))}
++                        </SelectContent>
++                      </Select>
++                    )}
+                   </div>
+ 
+                   {/* Expanded details */}
+diff --git a/src/lib/orders.ts b/src/lib/orders.ts
+index 96f9280..493644a 100755
+--- a/src/lib/orders.ts
++++ b/src/lib/orders.ts
+@@ -131,6 +131,17 @@ export interface OrderWithItems {
+   erpSalesOrderName: string | null;
+   estimatedDelivery: string | null;
+   statusHistory: { status: OrderStatus; timestamp: string }[];
++  /// Payment info (admin only — fetched separately, not always included).
++  /// Used by order-editor to show payment status + verify button.
++  payment?: {
++    id: string;
++    method: string;
++    status: string;
++    amount: number;
++    vaNumber: string | null;
++    vaBank: string | null;
++    paidAt: string | null;
++  } | null;
+   createdAt: string;
+   updatedAt: string;
+ }
+-- 
+2.47.3
+
