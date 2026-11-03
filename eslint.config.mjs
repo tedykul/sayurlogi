@@ -19,6 +19,12 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     // React rules
     "react-hooks/exhaustive-deps": "off",
     "react-hooks/purity": "off",
+    // Disabled to match React 18 semantics of upstream codebase.
+    // The original components use synchronous setState in effects
+    // (e.g. sticky-cart-bar.tsx, testimonials-section.tsx) which
+    // React 19's new rule flags as error. Re-enable when refactoring
+    // those components to idiomatic React 19 derived-state pattern.
+    "react-hooks/set-state-in-effect": "off",
     "react/no-unescaped-entities": "off",
     "react/display-name": "off",
     "react/prop-types": "off",
