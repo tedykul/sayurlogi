@@ -1,4 +1,4 @@
-import { getWaConfig } from "@/lib/integration-config";
+import { getWaConfig, getAdminPhone } from "@/lib/integration-config";
 import { db } from "@/lib/db";
 
 // ============================================================
@@ -287,4 +287,158 @@ export async function sendTestWa(phone: string): Promise<SendMessageResult> {
     `— Tim SayurLogi`,
   ].join("\n");
   return sendMessage(phone, message);
+}
+
+// ============================================================
+// Admin notifications — sent to admin phone (configured via
+// IntegrationConfig.wa_admin_phone). Best-effort: never throws.
+// ============================================================
+// - notifyAdminNewOrder: customer checkout → admin gets WA
+// - notifyPaymentNeedsVerification: customer klik "saya sudah bayar"
+//   (Midtrans disabled) → admin gets WA "perlu verify pembayaran"
+// - notifyPaymentVerified: payment confirmed (admin verify OR Midtrans
+//   webhook) → customer gets WA "pembayaran diterima"
+// ============================================================
+
+export async function notifyAdminNewOrder(orderId: string): Promise<void> {
+  try {
+    const adminPhone = await getAdminPhone();
+    if (!adminPhone) return; // admin notif disabled
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      select: {
+        trackingId: true,
+        customerName: true,
+        total: true,
+        paymentMethod: true,
+        customerPhone: true,
+        estimatedDelivery: true,
+      },
+    });
+    if (!order) return;
+
+    const paymentLabel: Record<string, string> = {
+      cod: "COD (bayar di tempat)",
+      transfer: "Transfer Bank (VA)",
+      ewallet: "E-Wallet",
+    };
+    const label = paymentLabel[order.paymentMethod] || order.paymentMethod;
+
+    const message = [
+      `🛒 *ORDER BARU* — SayurLogi`,
+      ``,
+      `Tracking: ${order.trackingId}`,
+      `Customer: ${order.customerName}`,
+      `HP: ${order.customerPhone || "-"}`,
+      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
+      `Pembayaran: ${label}`,
+      order.estimatedDelivery
+        ? `Estimasi kirim: ${new Date(order.estimatedDelivery).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} WIB`
+        : "",
+      ``,
+      order.paymentMethod === "cod"
+        ? `→ Siapkan pesanan untuk COD.`
+        : `→ Tunggu konfirmasi pembayaran dari customer.`,
+      ``,
+      `— SayurLogi Admin Notif`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const result = await sendMessage(adminPhone, message);
+    if (!result.success) {
+      console.warn(`[wa] notifyAdminNewOrder failed:`, result.message);
+    }
+  } catch (err: any) {
+    console.warn("[wa] notifyAdminNewOrder error (non-blocking):", err.message);
+  }
+}
+
+export async function notifyPaymentNeedsVerification(orderId: string): Promise<void> {
+  try {
+    const adminPhone = await getAdminPhone();
+    if (!adminPhone) return;
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      select: {
+        trackingId: true,
+        customerName: true,
+        customerPhone: true,
+        total: true,
+        paymentMethod: true,
+      },
+    });
+    if (!order) return;
+
+    const message = [
+      `💰 *PERLU VERIFIKASI PEMBAYARAN*`,
+      ``,
+      `Customer ${order.customerName} mengaku sudah bayar.`,
+      ``,
+      `Tracking: ${order.trackingId}`,
+      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
+      `Metode: ${order.paymentMethod}`,
+      `HP customer: ${order.customerPhone || "-"}`,
+      ``,
+      `→ Cek mutasi rekening/VA, lalu konfirmasi di dashboard admin.`,
+      ``,
+      `— SayurLogi Admin Notif`,
+    ].join("\n");
+
+    const result = await sendMessage(adminPhone, message);
+    if (!result.success) {
+      console.warn(`[wa] notifyPaymentNeedsVerification failed:`, result.message);
+    }
+  } catch (err: any) {
+    console.warn("[wa] notifyPaymentNeedsVerification error (non-blocking):", err.message);
+  }
+}
+
+export async function notifyPaymentVerified(orderId: string): Promise<void> {
+  try {
+    const config = await getWaConfig();
+    if (!config.enabled) return;
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      select: {
+        customerName: true,
+        customerPhone: true,
+        trackingId: true,
+        total: true,
+        estimatedDelivery: true,
+      },
+    });
+    if (!order || !order.customerPhone) return;
+
+    const message = [
+      `✅ *Pembayaran Diterima!*`,
+      ``,
+      `Halo ${order.customerName},`,
+      `Pembayaran untuk pesanan Anda sudah kami terima. Pesanan sedang diproses.`,
+      ``,
+      `*Detail:*`,
+      `Tracking ID: ${order.trackingId}`,
+      `Total: Rp ${order.total.toLocaleString("id-ID")}`,
+      `Status: Dikonfirmasi`,
+      order.estimatedDelivery
+        ? `Estimasi kirim: ${new Date(order.estimatedDelivery).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} WIB`
+        : "",
+      ``,
+      `Lacak pesanan di website dengan Tracking ID di atas.`,
+      ``,
+      `— Tim SayurLogi`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const result = await sendMessage(order.customerPhone, message);
+    if (!result.success) {
+      console.warn(`[wa] notifyPaymentVerified failed for ${order.trackingId}:`, result.message);
+    }
+  } catch (err: any) {
+    console.warn("[wa] notifyPaymentVerified error (non-blocking):", err.message);
+  }
 }

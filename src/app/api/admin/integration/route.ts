@@ -68,6 +68,7 @@ export async function GET() {
         apiKey: wa.apiKey,
         sender: wa.sender,
         enabled: wa.enabled,
+        adminPhone: wa.adminPhone,
       },
       isWaEnabled: await isWaEnabled(),
     });
@@ -153,6 +154,12 @@ export async function POST(req: NextRequest) {
     if (body.wa_enabled !== undefined) {
       const enabled = body.wa_enabled === true || body.wa_enabled === "true" ? "true" : "false";
       savePromises.push(setConfigValue(WA_KEYS.ENABLED, enabled));
+      touchedSection = "wa";
+    }
+    if (body.wa_admin_phone !== undefined) {
+      // Normalize: strip non-digits (phone digits only, no "+", spaces, dashes)
+      const phone = String(body.wa_admin_phone).replace(/[^\d]/g, "");
+      savePromises.push(setConfigValue(WA_KEYS.ADMIN_PHONE, phone));
       touchedSection = "wa";
     }
 

@@ -103,6 +103,10 @@ export const WA_KEYS = {
   API_KEY: "wa_api_key",
   SENDER: "wa_sender",
   ENABLED: "wa_enabled",
+  /// Admin phone number for order + payment notifications (E.164 format
+  /// without "+", e.g. "6281234567890"). Used by notifyAdminNewOrder
+  /// + notifyPaymentNeedsVerification. Empty = admin notifications disabled.
+  ADMIN_PHONE: "wa_admin_phone",
 } as const;
 
 const SECRET_KEYS = new Set([
@@ -270,6 +274,9 @@ export interface WaConfig {
   apiKey: string;
   sender: string;
   enabled: boolean;
+  /// Admin phone for order/payment notifications (E.164, no "+").
+  /// Empty = admin notifications disabled.
+  adminPhone: string;
 }
 
 export async function getWaConfig(): Promise<WaConfig> {
@@ -289,6 +296,7 @@ export async function getWaConfig(): Promise<WaConfig> {
     apiKey: map[WA_KEYS.API_KEY] || "",
     sender: map[WA_KEYS.SENDER] || "",
     enabled: map[WA_KEYS.ENABLED] === "true",
+    adminPhone: map[WA_KEYS.ADMIN_PHONE] || "",
   };
 }
 
@@ -296,4 +304,14 @@ export async function getWaConfig(): Promise<WaConfig> {
 export async function isWaEnabled(): Promise<boolean> {
   const c = await getWaConfig();
   return c.enabled && c.provider !== "mock" && Boolean(c.apiKey);
+}
+
+/**
+ * Get admin phone for notifications. Returns empty string if not set
+ * or WA disabled. Used by notifyAdminNewOrder + notifyPaymentNeedsVerification.
+ */
+export async function getAdminPhone(): Promise<string> {
+  const c = await getWaConfig();
+  if (!c.enabled) return "";
+  return c.adminPhone;
 }
