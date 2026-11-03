@@ -129,7 +129,11 @@ export function Hero({ onShopNow, onViewPromo, content }: HeroProps) {
             transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-wrap gap-2 pt-1 md:gap-3"
           >
-            <Button size="lg" className="rounded-full px-5 h-11 text-sm shadow-lg shadow-orange-500/30 bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 group md:px-7 md:h-12 md:text-base">
+            <Button
+              size="lg"
+              className="rounded-full px-5 h-11 text-sm shadow-lg shadow-orange-500/30 bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 group md:px-7 md:h-12 md:text-base"
+              onClick={onShopNow}
+            >
               {ctaPrimary}
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
