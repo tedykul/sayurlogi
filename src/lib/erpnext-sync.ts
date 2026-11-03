@@ -121,6 +121,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
     }
 
     return {
+      success: true,
       source: fetchedSource === "erpnext" ? "erpnext" : source,
       synced,
       total: products.length,
@@ -136,6 +137,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
   } catch (err) {
     console.error("[erpnext-sync] syncAllFromErpnext failed:", err);
     return {
+      success: false,
       source,
       synced: 0,
       total: 0,
