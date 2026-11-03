@@ -295,5 +295,17 @@ export async function updatePaymentFromWebhook(opts: {
     }
   }
 
+  // Notify customer when payment confirmed (best-effort, non-blocking).
+  // Only fires when transitioning TO "paid" status (settlement/capture).
+  // Avoid circular import: dynamic import wa-notification (midtrans.ts is
+  // imported by webhook route which also imports wa-notification).
+  if (paymentStatus === "paid" && order) {
+    import("./wa-notification")
+      .then(({ notifyPaymentVerified }) => notifyPaymentVerified(order.id))
+      .catch((err) => {
+        console.warn("[midtrans] webhook: notifyPaymentVerified failed:", err.message);
+      });
+  }
+
   return true;
 }

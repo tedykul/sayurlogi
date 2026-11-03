@@ -6,7 +6,7 @@ import { estimateDelivery } from "@/lib/delivery";
 import { syncAllFromErpnext } from "@/lib/erpnext-sync";
 import { validateCoupon, redeemCoupon } from "@/lib/coupons";
 import { verifyCustomerAuth } from "@/lib/customer-auth";
-import { notifyOrderCreated } from "@/lib/wa-notification";
+import { notifyOrderCreated, notifyAdminNewOrder } from "@/lib/wa-notification";
 import { db } from "@/lib/db";
 import { calculateShipping } from "@/lib/delivery-zones";
 import { bookSlot, isSchedulingEnabled } from "@/lib/delivery-slots";
@@ -248,6 +248,12 @@ export async function POST(req: NextRequest) {
     //    order-created message to customer if WA enabled.
     notifyOrderCreated(order.id).catch((err) => {
       console.warn("[checkout] WA notifyOrderCreated failed (non-blocking):", err.message);
+    });
+
+    // 8b. WhatsApp notification to admin (best-effort, non-blocking).
+    //     Fires only if admin phone configured (IntegrationConfig.wa_admin_phone).
+    notifyAdminNewOrder(order.id).catch((err) => {
+      console.warn("[checkout] WA notifyAdminNewOrder failed (non-blocking):", err.message);
     });
 
     // 9. Sync product stock from ERPNext (non-blocking, background)
