@@ -532,6 +532,7 @@ function DesktopTestimonialCarousel({ items }: { items: TestimonialItem[] }) {
     // embla instance, not on every render).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setScrollSnaps(emblaApi.scrollSnapList());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIndex(emblaApi.selectedScrollSnap());
     emblaApi.on("select", onSelect);
     emblaApi.on("reInit", onSelect);

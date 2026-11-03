@@ -29,9 +29,7 @@ export function StickyCartBar() {
       const t = setTimeout(() => setVisible(true), 300);
       return () => clearTimeout(t);
     }
-    // Use a microtask to avoid synchronous setState in effect body
-    const t = setTimeout(() => setVisible(false), 0);
-    return () => clearTimeout(t);
+    setVisible(false);
   }, [totalItems, isOpen]);
 
   return (
