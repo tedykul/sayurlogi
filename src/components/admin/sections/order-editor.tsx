@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Loader2, Search, Filter, RefreshCw, Package, Phone, MapPin, Clock, ChevronDown, ChevronUp,
+  CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,13 +51,19 @@ export function OrderEditor() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ limit: String(ORDERS_PER_PAGE), page: String(page) });
-      if (filterStatus !== "all") params.set("status", filterStatus);
+      if (filterStatus === "need_verification") {
+        // Special filter: orders with payment.status = pending_verification
+        params.set("payment_status", "pending_verification");
+      } else if (filterStatus !== "all") {
+        params.set("status", filterStatus);
+      }
       if (search.trim()) params.set("search", search.trim());
       const res = await adminFetch<OrderListResponse>(`/api/admin/orders?${params}`);
       setOrders(res.orders || []);
@@ -107,6 +114,25 @@ export function OrderEditor() {
     setExpandedId((prev) => (prev === orderId ? null : orderId));
   };
 
+  // Verify payment manually (admin confirm customer payment).
+  // Calls /api/admin/orders/[id]/verify-payment which marks payment
+  // as paid + order as confirmed + sends WA to customer.
+  const handleVerifyPayment = async (orderId: string) => {
+    setVerifyingId(orderId);
+    try {
+      await adminFetch(`/api/admin/orders/${orderId}/verify-payment`, {
+        method: "POST",
+      });
+      toast.success("Pembayaran dikonfirmasi. Customer akan dapat notifikasi WA.");
+      // Refresh list to reflect updated payment status
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal verifikasi pembayaran");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   return (
     <div>
       <AdminSectionHeading
@@ -153,6 +179,7 @@ export function OrderEditor() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Status</SelectItem>
+            <SelectItem value="need_verification">⚠️ Perlu Verifikasi Pembayaran</SelectItem>
             {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
               <SelectItem key={s} value={s}>
                 {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
@@ -228,13 +255,32 @@ export function OrderEditor() {
 
                     {/* Tracking ID + customer */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <code className="text-sm font-mono font-bold text-primary">
                           {order.trackingId}
                         </code>
                         <Badge className={cn("text-[10px] font-medium", ORDER_STATUS_COLORS[order.status])}>
                           {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
                         </Badge>
+                        {/* Payment status badge (only show if not COD + payment exists) */}
+                        {order.payment && order.payment.method !== "cod" && (
+                          <Badge
+                            className={cn(
+                              "text-[10px] font-medium",
+                              order.payment.status === "paid"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                : order.payment.status === "pending_verification"
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                  : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {order.payment.status === "paid"
+                              ? `✓ Lunas ${order.payment.paidAt ? new Date(order.payment.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : ""}`
+                              : order.payment.status === "pending_verification"
+                                ? "💰 Perlu Verifikasi"
+                                : `⏳ ${order.payment.status}`}
+                          </Badge>
+                        )}
                       </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                         <span>{order.customerName}</span>
@@ -246,27 +292,43 @@ export function OrderEditor() {
                       </div>
                     </div>
 
-                    {/* Quick status update */}
-                    <Select
-                      value={order.status}
-                      onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
-                      disabled={updatingId === order.id}
-                    >
-                      <SelectTrigger className="w-[140px] h-8 rounded-lg text-xs shrink-0">
-                        {updatingId === order.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                    {/* Verify payment button (only for pending_verification) OR Quick status update */}
+                    {order.payment?.status === "pending_verification" ? (
+                      <Button
+                        size="sm"
+                        onClick={() => handleVerifyPayment(order.id)}
+                        disabled={verifyingId === order.id}
+                        className="h-8 rounded-lg text-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {verifyingId === order.id ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                         ) : (
-                          <SelectValue />
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
                         )}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        Konfirmasi Bayar
+                      </Button>
+                    ) : (
+                      <Select
+                        value={order.status}
+                        onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
+                        disabled={updatingId === order.id}
+                      >
+                        <SelectTrigger className="w-[140px] h-8 rounded-lg text-xs shrink-0">
+                          {updatingId === order.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <SelectValue />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
 
                   {/* Expanded details */}

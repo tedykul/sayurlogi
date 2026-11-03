@@ -602,6 +602,7 @@ interface WaForm {
   apiKey: string;
   sender: string;
   enabled: boolean;
+  adminPhone: string;
 }
 
 function WaSection() {
@@ -610,6 +611,7 @@ function WaSection() {
     apiKey: "",
     sender: "",
     enabled: false,
+    adminPhone: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -645,6 +647,7 @@ function WaSection() {
           wa_api_key: form.apiKey,
           wa_sender: form.sender,
           wa_enabled: form.enabled,
+          wa_admin_phone: form.adminPhone,
         }),
       });
       toast.success("Konfigurasi WhatsApp disimpan");
@@ -670,6 +673,7 @@ function WaSection() {
           wa_api_key: form.apiKey,
           wa_sender: form.sender,
           wa_enabled: form.enabled,
+          wa_admin_phone: form.adminPhone,
         }),
       });
       const res = await adminFetch<{ success: boolean; message: string }>(
@@ -782,6 +786,16 @@ function WaSection() {
                 onChange={(e) => setForm({ ...form, sender: e.target.value })}
                 placeholder="628xxx atau device-id"
                 disabled={!form.enabled || form.provider === "mock"}
+                className="text-xs"
+              />
+            </AdminField>
+
+            <AdminField label="Nomor WhatsApp Admin" hint="Nomor HP admin untuk notifikasi order baru + verifikasi pembayaran. Format: 628xxx (tanpa '+' atau spasi). Kosong = notif admin dimatikan.">
+              <Input
+                value={form.adminPhone}
+                onChange={(e) => setForm({ ...form, adminPhone: e.target.value })}
+                placeholder="6281234567890"
+                disabled={!form.enabled}
                 className="text-xs"
               />
             </AdminField>
