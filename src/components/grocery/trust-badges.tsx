@@ -1,7 +1,8 @@
 "use client";
 
-import { ShieldCheck, Lock, Truck, RefreshCw, Leaf, CreditCard } from "lucide-react";
+import { ShieldCheck, Lock, Truck, RefreshCw, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 /**
  * Reusable trust badge strip for checkout & product pages.
@@ -37,13 +38,14 @@ const BADGES = [
   },
 ];
 
+// Payment method logos — branded SVG files in /public/payments/
 const PAYMENT_METHODS = [
-  { emoji: "💵", label: "COD" },
-  { emoji: "🏦", label: "BCA" },
-  { emoji: "🏦", label: "Mandiri" },
-  { emoji: "📱", label: "GoPay" },
-  { emoji: "📱", label: "OVO" },
-  { emoji: "📱", label: "DANA" },
+  { logo: "/payments/cod.svg", label: "COD" },
+  { logo: "/payments/bca.svg", label: "BCA" },
+  { logo: "/payments/mandiri.svg", label: "Mandiri" },
+  { logo: "/payments/gopay.svg", label: "GoPay" },
+  { logo: "/payments/ovo.svg", label: "OVO" },
+  { logo: "/payments/dana.svg", label: "DANA" },
 ];
 
 export function TrustBadges({ variant = "compact", className }: TrustBadgesProps) {
@@ -81,17 +83,24 @@ export function TrustBadges({ variant = "compact", className }: TrustBadgesProps
         ))}
       </div>
 
-      {/* Payment methods — wraps to multiple lines on narrow viewports */}
+      {/* Payment methods — branded logo chips, wraps on narrow viewports */}
       <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
         <span className="text-xs text-muted-foreground whitespace-nowrap mr-0.5">Metode pembayaran:</span>
         {PAYMENT_METHODS.map((m) => (
           <span
             key={m.label}
-            className="inline-flex items-center gap-0.5 rounded-md border border-border/40 bg-background px-2 py-1 text-xs font-medium whitespace-nowrap"
+            className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 whitespace-nowrap"
             title={m.label}
           >
-            <span aria-hidden="true">{m.emoji}</span>
-            <span>{m.label}</span>
+            <Image
+              src={m.logo}
+              alt={m.label}
+              width={28}
+              height={20}
+              className="h-5 w-auto"
+              unoptimized
+            />
+            <span className="text-xs font-medium">{m.label}</span>
           </span>
         ))}
       </div>

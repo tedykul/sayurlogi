@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Leaf, Mail, Phone, MapPin, Facebook, Instagram, Twitter, ArrowUp, Send, Clock, ShieldCheck, Truck, CreditCard, ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { NewsletterForm } from "./newsletter-form";
 import { cn } from "@/lib/utils";
@@ -35,11 +36,17 @@ const TRUST_BADGES = [
   { icon: CreditCard, label: "Pembayaran Aman" },
 ];
 
-// Payment methods — text labels styled as chips (no external image deps)
+// Payment methods — branded SVG logos from /public/payments/
 const PAYMENT_METHODS = [
-  { group: "Transfer Bank", items: ["BCA", "Mandiri", "BNI", "BRI"] },
-  { group: "E-Wallet", items: ["GoPay", "OVO", "DANA", "ShopeePay"] },
-  { group: "Lainnya", items: ["COD"] },
+  { logo: "/payments/cod.svg", label: "COD" },
+  { logo: "/payments/bca.svg", label: "BCA" },
+  { logo: "/payments/mandiri.svg", label: "Mandiri" },
+  { logo: "/payments/bni.svg", label: "BNI" },
+  { logo: "/payments/bri.svg", label: "BRI" },
+  { logo: "/payments/gopay.svg", label: "GoPay" },
+  { logo: "/payments/ovo.svg", label: "OVO" },
+  { logo: "/payments/dana.svg", label: "DANA" },
+  { logo: "/payments/shopeepay.svg", label: "ShopeePay" },
 ];
 
 /**
@@ -309,9 +316,9 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
         </div>
       </div>
 
-      {/* ============ Payment methods — compact inline (mobile) / card (desktop) ============ */}
+      {/* ============ Payment methods — branded logos (mobile) / card (desktop) ============ */}
       <div className="mx-auto max-w-7xl px-4 pb-4">
-        {/* Mobile: compact inline inside elevated card */}
+        {/* Mobile: grid of branded logo chips */}
         <div className="md:hidden">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-muted/50 p-3.5 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
             <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
@@ -319,31 +326,51 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
               <CreditCard className="h-3 w-3 text-primary" />
               Metode Pembayaran
             </p>
-            <div className="grid grid-cols-4 gap-1.5">
-              {PAYMENT_METHODS.map((group) =>
-                group.items.map((method) => (
-                  <span key={method} className="flex items-center justify-center rounded-md bg-background px-1.5 py-1.5 text-xs font-bold text-foreground ring-1 ring-border/60 shadow-sm text-center">
-                    {method}
-                  </span>
-                ))
-              )}
+            <div className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS.map((m) => (
+                <div
+                  key={m.label}
+                  className="flex items-center justify-center gap-1.5 rounded-md bg-background px-2 py-2 ring-1 ring-border/60 shadow-sm"
+                  title={m.label}
+                >
+                  <Image
+                    src={m.logo}
+                    alt={m.label}
+                    width={28}
+                    height={20}
+                    className="h-5 w-auto"
+                    unoptimized
+                  />
+                  <span className="text-xs font-bold text-foreground">{m.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-        {/* Desktop: elevated card */}
+        {/* Desktop: elevated card with branded logos */}
         <div className="hidden md:flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)] md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <CreditCard className="h-4 w-4 text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-foreground">Metode Pembayaran</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {PAYMENT_METHODS.map((group) =>
-              group.items.map((method) => (
-                <span key={method} className="rounded-md bg-background px-2.5 py-1.5 text-xs font-bold text-foreground ring-1 ring-border shadow-sm">
-                  {method}
-                </span>
-              ))
-            )}
+          <div className="flex flex-wrap gap-2">
+            {PAYMENT_METHODS.map((m) => (
+              <div
+                key={m.label}
+                className="flex items-center gap-1.5 rounded-md bg-background px-2.5 py-1.5 ring-1 ring-border shadow-sm"
+                title={m.label}
+              >
+                <Image
+                  src={m.logo}
+                  alt={m.label}
+                  width={32}
+                  height={22}
+                  className="h-5 w-auto"
+                  unoptimized
+                />
+                <span className="text-xs font-bold text-foreground">{m.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
