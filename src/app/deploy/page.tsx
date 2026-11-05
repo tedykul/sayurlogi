@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Download, Loader2, CheckCircle2, AlertCircle, FileCode, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,30 +10,28 @@ import { toast } from "sonner";
 // ============================================================
 // /deploy — download source code for VPS transfer.
 // ============================================================
-// Page shows what's included/excluded + a download button.
-// Requires admin session (same as the API endpoint).
+// No pre-auth check (avoids rate-limited /api/admin/login GET).
+// The download endpoint itself validates the admin session cookie.
+// If not authed, the download fails with 401 + toast error.
 // ============================================================
 
 export default function DeployPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
   const [downloading, setDownloading] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/login", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => setAuthed(!!data.authed))
-      .catch(() => setAuthed(false));
-  }, []);
+  const [done, setDone] = useState(false);
 
   const handleDownload = async () => {
     setDownloading(true);
+    setDone(false);
     try {
       const res = await fetch("/api/deploy/download", {
         credentials: "include",
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: "Download gagal" }));
-        throw new Error(err.message);
+        if (res.status === 401) {
+          throw new Error("Anda belum login admin. Buka homepage, tekan Ctrl+Shift+A, login, lalu kembali ke halaman ini.");
+        }
+        throw new Error(err.message || "Download gagal");
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -44,6 +42,7 @@ export default function DeployPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setDone(true);
       toast.success("Download dimulai — cek folder Downloads Anda");
     } catch (err: any) {
       toast.error(err.message || "Download gagal");
@@ -51,38 +50,6 @@ export default function DeployPage() {
       setDownloading(false);
     }
   };
-
-  if (authed === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!authed) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              Admin Login Diperlukan
-            </CardTitle>
-            <CardDescription>
-              Halaman download source code hanya untuk admin. Buka homepage,
-              tekan Ctrl+Shift+A untuk login admin, lalu kembali ke halaman ini.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => (window.location.href = "/")} className="w-full">
-              Ke Homepage
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/20 p-4 md:p-8">
@@ -107,7 +74,7 @@ export default function DeployPage() {
             </CardTitle>
             <CardDescription>
               File tar.gz berisi semua kode source SayurLogi (src, prisma, public, scripts, config).
-              Siap di-extract di VPS.
+              Siap di-extract di VPS. Wajib login admin dulu.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,6 +84,11 @@ export default function DeployPage() {
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Mengunduh...
                 </>
+              ) : done ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                  Download selesai — download lagi?
+                </>
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
@@ -124,6 +96,9 @@ export default function DeployPage() {
                 </>
               )}
             </Button>
+            <p className="mt-2 text-xs text-muted-foreground text-center">
+              Jika gagal: buka homepage → Ctrl+Shift+A → login → kembali ke /deploy
+            </p>
           </CardContent>
         </Card>
 
