@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
@@ -7,18 +7,38 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { CookieConsent } from "@/components/grocery/cookie-consent";
 import { db } from "@/lib/db";
 
+// ============================================================
+// Font configuration
+// ============================================================
+// Primary sans font: Plus Jakarta Sans (Google Fonts).
+// Display font (was Fraunces): replaced with Georgia (system
+// serif font) to avoid build failures on VPS without internet
+// access to fonts.googleapis.com during `next build`.
+//
+// The --font-display CSS variable is set to a serif font stack
+// (Georgia → 'Times New Roman' → serif) so existing components
+// that use `font-display` class (hero, contact-section, faq-
+// section, testimonials-section) will still render in a serif
+// typeface without requiring an external font download.
+//
+// If you want to restore Fraunces later (when VPS has stable
+// internet during build), re-add this import + usage:
+//
+//   import { Fraunces } from "next/font/google";
+//   const fraunces = Fraunces({
+//     variable: "--font-fraunces",
+//     subsets: ["latin"],
+//     weight: ["400", "500", "600", "700", "800", "900"],
+//     style: ["normal", "italic"],
+//     display: "swap",
+//   });
+//   // ...and add `${fraunces.variable}` to body className.
+// ============================================================
+
 const jakartaSans = Plus_Jakarta_Sans({
   variable: "--font-jakarta-sans",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -74,7 +94,8 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${jakartaSans.variable} ${fraunces.variable} antialiased bg-background text-foreground`}
+        className={`${jakartaSans.variable} antialiased bg-background text-foreground`}
+        style={{ "--font-fraunces": "Georgia, 'Times New Roman', serif" } as React.CSSProperties}
       >
         <ThemeProvider
           attribute="class"
