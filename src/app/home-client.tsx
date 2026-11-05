@@ -268,9 +268,11 @@ export function HomeClient({ content }: HomeClientProps) {
         onSearchChange={setSearchQuery}
         brandName={content.brandName ?? "SayurLogi"}
         // Pass DB-driven top bar fields (admin > Header tab).
-        // Only the 3 fields the top bar renders; not the whole
-        // PageContent object (keeps Header props minimal + typed).
+        // All 4 fields are optional — when null/empty, that element
+        // hides entirely (no default fallback). When ALL are empty,
+        // the entire top bar hides.
         content={{
+          topBarLocation: content.topBarLocation,
           topBarShipping: content.topBarShipping,
           contactPhone: content.contactPhone,
           topBarBadge: content.topBarBadge,

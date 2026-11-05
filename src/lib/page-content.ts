@@ -88,6 +88,7 @@ export interface PageContent {
   testimonialStat4Subtext: string | null;
   topBarShipping: string | null;
   topBarBadge: string | null;
+  topBarLocation: string | null;
   footerCopyrightText: string | null;
   faqs: { id: string; q: string; a: string }[];
   testimonials: {
@@ -135,7 +136,7 @@ const NULL_CONTENT = {
   testimonialStat2Value: null, testimonialStat2Label: null, testimonialStat2Subtext: null,
   testimonialStat3Value: null, testimonialStat3Label: null, testimonialStat3Subtext: null,
   testimonialStat4Value: null, testimonialStat4Label: null, testimonialStat4Subtext: null,
-  topBarShipping: null, topBarBadge: null,
+  topBarShipping: null, topBarBadge: null, topBarLocation: null,
   footerCopyrightText: null,
 };
 

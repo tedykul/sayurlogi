@@ -249,6 +249,9 @@ model SiteSetting {
   testimonialStat4Subtext String?
   topBarShipping          String?
   topBarBadge             String?
+  /// Location label shown leftmost in the top bar (e.g. "Antar seluruh kota").
+  /// When null/empty, the location pin + text hide entirely.
+  topBarLocation          String?
   footerCopyrightText     String?
   /// Delivery scheduling master toggle. When true, checkout shows
   /// a slot picker (pagi/siang/sore). When false, checkout uses

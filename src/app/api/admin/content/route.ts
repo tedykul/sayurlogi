@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       "testimonialStat2Value", "testimonialStat2Label", "testimonialStat2Subtext",
       "testimonialStat3Value", "testimonialStat3Label", "testimonialStat3Subtext",
       "testimonialStat4Value", "testimonialStat4Label", "testimonialStat4Subtext",
-      "topBarShipping", "topBarBadge",
+      "topBarShipping", "topBarBadge", "topBarLocation",
       "footerCopyrightText",
     ];
     // Integer fields — parsed as Number, persisted as Int? on SiteSetting.
