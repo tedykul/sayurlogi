@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PanelTop, Phone, Truck, Tag, MapPin } from "lucide-react";
+import { PanelTop, Phone, Truck, Tag, MapPin, Leaf } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { adminFetch } from "@/lib/admin-client";
@@ -48,10 +48,10 @@ const FIELDS = [
   },
   {
     key: "topBarBadge",
-    label: "Badge Top Bar (Kanan)",
-    placeholder: "Buka · 08.00–21.00",
-    hint: "Pill badge di pojok kanan. Kosongkan untuk sembunyikan.",
-    icon: Tag,
+    label: "Tagline Kanan (dengan ikon daun)",
+    placeholder: "Petani Lokal • 100% Segar",
+    hint: "Teks di pojok kanan top bar dengan ikon daun. Kosongkan untuk sembunyikan.",
+    icon: Leaf,
   },
 ] as const;
 
@@ -144,10 +144,10 @@ export function HeaderEditor() {
                 </span>
               )}
             </div>
-            {/* Right side: badge */}
+            {/* Right side: tagline with leaf icon (matches storefront) */}
             {content?.topBarBadge && (
-              <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 shrink-0">
-                <Tag className="h-3 w-3" />
+              <span className="flex items-center gap-1.5 text-primary font-semibold shrink-0">
+                <Leaf className="h-3 w-3" />
                 {content.topBarBadge}
               </span>
             )}

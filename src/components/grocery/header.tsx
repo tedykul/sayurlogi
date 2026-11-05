@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart, Leaf, Search, MapPin, Phone, Heart, Truck, Tag } from "lucide-react";
+import { ShoppingCart, Leaf, Search, MapPin, Phone, Heart, Truck } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
 import { Button } from "@/components/ui/button";
@@ -117,14 +117,16 @@ export function Header({
                 </a>
               )}
             </div>
-            {/* Right side: badge (or default brand tagline when no badge) */}
+            {/* Right side: tagline text with leaf icon (original style).
+                When topBarBadge is empty, this element hides entirely.
+                Example default value: "Petani Lokal • 100% Segar" */}
             <div className="flex items-center gap-2">
-              {topBarBadge ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  <Tag className="h-3 w-3" />
+              {topBarBadge && (
+                <span className="flex items-center gap-1.5 text-primary font-semibold">
+                  <Leaf className="h-3.5 w-3.5" />
                   {topBarBadge}
                 </span>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
