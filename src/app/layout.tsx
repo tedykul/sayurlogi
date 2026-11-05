@@ -44,9 +44,12 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: ["grocery", "sayur", "buah", "online", "segar", "toko online", "belanja sayur"],
     authors: [{ name: brandName }],
     icons: {
-      icon: "/logo.svg",
-      shortcut: "/logo.svg",
-      apple: "/logo.svg",
+      icon: [
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      shortcut: "/icon-192.png",
+      apple: "/apple-touch-icon.png",
     },
     manifest: "/manifest.json",
     openGraph: {
