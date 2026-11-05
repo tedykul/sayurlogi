@@ -45,15 +45,10 @@ export function CookieConsent() {
     const stored = readConsent();
     setChoice(stored);
     setMounted(true);
-
-    // Auto-dismiss after 6 seconds on mobile (reduces obstruction)
-    if (!stored) {
-      const timer = setTimeout(() => {
-        setChoice("accepted");
-        try { localStorage.setItem(STORAGE_KEY, "accepted"); } catch {}
-      }, 6000);
-      return () => clearTimeout(timer);
-    }
+    // No auto-dismiss — user MUST click "Tolak" or "Setuju" to
+    // close the banner. This ensures explicit consent (GDPR best
+    // practice). Previous 6-second auto-accept removed because
+    // it allowed users to bypass the consent choice.
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
