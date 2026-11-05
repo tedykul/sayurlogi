@@ -1,140 +1,239 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
-import { adminFetch } from "@/lib/admin-client";
+import { useEffect, useState, useRef } from "react";
 import {
   AdminSectionHeading,
+  AdminCard,
   AdminField,
   SaveButton,
-  AdminCard,
 } from "../admin-ui";
+import { adminFetch } from "@/lib/admin-client";
+import { toast } from "sonner";
+import { Upload, Loader2, ImageIcon, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // ============================================================
-// BrandSettingsEditor — edit brand name, meta description, social links.
+// BrandSettingsEditor — brand identity settings + logo upload.
 // ============================================================
 
 const FIELDS = [
   { key: "brandName", label: "Nama Brand", placeholder: "SayurLogi", hint: "Tampil di header, footer, judul tab browser, manifest" },
-  { key: "metaDescription", label: "Meta Description (SEO)", placeholder: "Belanja sayuran dan buah segar...", multiline: true, hint: "Tampil di hasil pencarian Google (maks 160 karakter)" },
-] as const;
-
-const SOCIAL_FIELDS = [
-  { key: "socialInstagram", label: "Instagram URL", placeholder: "https://instagram.com/sayurbox" },
-  { key: "socialFacebook", label: "Facebook URL", placeholder: "https://facebook.com/sayurbox" },
-  { key: "socialTwitter", label: "Twitter/X URL", placeholder: "https://twitter.com/sayurbox" },
-  { key: "socialTiktok", label: "TikTok URL", placeholder: "https://tiktok.com/@sayurbox" },
-  { key: "socialWhatsapp", label: "WhatsApp Link", placeholder: "https://wa.me/6281234567890" },
-] as const;
+  { key: "metaDescription", label: "Meta Description (SEO)", placeholder: "Belanja sayuran dan buah segar langsung dari petani lokal.", hint: "Deskripsi singkat untuk Google search results (max 160 karakter)" },
+];
 
 export function BrandSettingsEditor() {
-  const [content, setContent] = useState<Record<string, string | null> | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [logoExists, setLogoExists] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
-    adminFetch<Record<string, unknown>>("/api/admin/content")
+    adminFetch<{ success: boolean; content: Record<string, string | null> }>(
+      "/api/admin/content"
+    )
       .then((res) => {
         if (cancelled) return;
-        setContent(res.content as Record<string, string | null>);
+        const data: Record<string, string> = {};
+        for (const f of FIELDS) {
+          data[f.key] = (res.content as Record<string, string | null>)?.[f.key] ?? "";
+        }
+        setForm(data);
       })
-      .catch(() => {
-        if (!cancelled) setContent({});
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+
+    // Check if custom logo exists
+    fetch("/logo-uploaded.png", { method: "HEAD" })
+      .then((res) => setLogoExists(res.ok))
+      .catch(() => setLogoExists(false));
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleChange = (key: string, value: string) => {
-    setContent((prev) => ({ ...(prev || {}), [key]: value }));
-  };
-
   const handleSave = async () => {
-    if (!content) return;
-    const payload: Record<string, string | null> = {};
-    for (const f of FIELDS) payload[f.key] = content[f.key] ?? null;
-    for (const f of SOCIAL_FIELDS) payload[f.key] = content[f.key] ?? null;
-    await adminFetch("/api/admin/content", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    setSaving(true);
+    try {
+      await adminFetch("/api/admin/content", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      toast.success("Branding tersimpan");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (loading || !content) {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate client-side
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar (PNG, JPG, SVG, WebP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran file terlalu besar (max 5MB)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+
+      const token = typeof window !== "undefined"
+        ? document.cookie.includes("admin_session")
+          ? undefined // cookie will be sent automatically
+          : undefined
+        : undefined;
+
+      // Use fetch directly (not adminFetch) because FormData needs different content-type
+      const res = await fetch("/api/admin/upload-logo", {
+        method: "POST",
+        body: formData,
+        credentials: "include", // send cookie
+        headers: {
+          // Add Bearer token as fallback
+          ...(typeof window !== "undefined"
+            ? { Authorization: `Bearer ${localStorage.getItem("admin_token") || sessionStorage.getItem("admin_token") || ""}` }
+            : {}),
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Upload gagal");
+      }
+
+      toast.success("Logo berhasil di-upload!", {
+        description: "PWA icons juga di-regenerate. Refresh halaman untuk melihat hasil.",
+      });
+      setLogoExists(true);
+
+      // Force page reload to pick up new icons
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      toast.error(err.message || "Gagal upload logo");
+    } finally {
+      setUploading(false);
+      // Reset file input so same file can be uploaded again
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  if (loading) {
     return (
-      <div>
-        <AdminSectionHeading title="Branding" description="Edit nama brand dan social media." />
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-          ))}
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       <AdminSectionHeading
         title="🎨 Branding"
-        description="Edit nama brand, meta description, dan social media links."
+        description="Identitas brand: nama, deskripsi SEO, dan logo."
       />
 
-      <div className="space-y-5">
-        {/* Brand identity */}
-        <AdminCard className="space-y-4">
-          <h3 className="text-sm font-bold border-b border-border pb-2">Identitas Brand</h3>
-          {FIELDS.map((f) => (
-            <AdminField key={f.key} label={f.label} hint={"hint" in f ? f.hint : undefined}>
-              {"multiline" in f && f.multiline ? (
-                <Textarea
-                  value={content[f.key] ?? ""}
-                  onChange={(e) => handleChange(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                  rows={3}
-                  maxLength={160}
-                  className="resize-none"
-                />
-              ) : (
-                <Input
-                  value={content[f.key] ?? ""}
-                  onChange={(e) => handleChange(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                />
-              )}
-            </AdminField>
-          ))}
-        </AdminCard>
+      {/* Brand Identity */}
+      <AdminCard className="space-y-4">
+        <h3 className="text-sm font-semibold">Identitas Brand</h3>
+        {FIELDS.map((f) => (
+          <AdminField key={f.key} label={f.label} hint={f.hint}>
+            <Input
+              value={form[f.key] ?? ""}
+              onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+              placeholder={f.placeholder}
+              className="h-9"
+            />
+          </AdminField>
+        ))}
+        <SaveButton onSave={handleSave} />
+      </AdminCard>
 
-        {/* Social media */}
-        <AdminCard className="space-y-4">
-          <h3 className="text-sm font-bold border-b border-border pb-2">Social Media Links</h3>
-          <p className="text-xs text-muted-foreground">
-            Isi URL untuk mengaktifkan link social media di footer. Kosongkan jika belum ada.
-          </p>
-          {SOCIAL_FIELDS.map((f) => (
-            <AdminField key={f.key} label={f.label}>
-              <Input
-                value={content[f.key] ?? ""}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-                placeholder={f.placeholder}
-                type="url"
+      {/* Logo Upload */}
+      <AdminCard className="space-y-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <ImageIcon className="h-4 w-4" /> Logo Brand
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Upload logo untuk digunakan di loading screen, header, PWA icons, dan favicon.
+          Format: PNG, JPG, SVG, atau WebP. Maks 5MB. Rekomendasi: 512x512px.
+        </p>
+
+        {/* Logo Preview */}
+        <div className="flex items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-border bg-muted/30 overflow-hidden">
+            {logoExists ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/logo-uploaded.png?t=${Date.now()}`}
+                alt="Logo saat ini"
+                className="h-full w-full object-contain"
               />
-            </AdminField>
-          ))}
-        </AdminCard>
-
-        <div className="flex justify-end">
-          <SaveButton onSave={handleSave} />
+            ) : (
+              <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            {logoExists ? (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Logo custom aktif
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Belum ada logo custom (pakai default)
+              </span>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              PWA icons akan otomatis di-regenerate
+            </span>
+          </div>
         </div>
-      </div>
+
+        {/* Upload Button */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          onChange={handleLogoUpload}
+          className="hidden"
+          id="logo-upload-input"
+        />
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+              Mengupload...
+            </>
+          ) : (
+            <>
+              <Upload className="h-3.5 w-3.5 mr-2" />
+              Upload Logo Baru
+            </>
+          )}
+        </Button>
+      </AdminCard>
     </div>
   );
 }
