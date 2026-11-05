@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ShoppingCart, Leaf, Search, MapPin, Phone, Heart, Truck } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
@@ -13,23 +14,24 @@ import { CustomerMenuButton } from "./customer-menu-button";
 // ============================================================
 // Header — sticky storefront header with top bar (desktop only).
 // ============================================================
-// Top bar is FULLY DB-driven via the `content` prop (edited in
-// admin > Header tab). Every field is optional:
+// Top bar is FULLY DB-driven. Data comes from TWO sources:
 //
-//   topBarLocation — leftmost label (e.g. "Antar seluruh kota")
-//   topBarShipping — promo line next to location (e.g. "Gratis ongkir min. Rp50rb")
-//   contactPhone   — phone number (right side, tel: link)
-//   topBarBadge    — pill badge shown on far right (e.g. "Buka · 08.00–21.00")
+// 1. SSR props (content prop from page.tsx → getPageContent()).
+//    This provides initial paint (fast, no flash).
 //
-// When a field is null/empty, that element HIDES entirely (no
-// default fallback). This lets admin delete any part of the top
-// bar via the dashboard. When ALL fields are empty, the entire top
-// bar hides (no empty strip).
+// 2. Client-side refetch (useEffect → GET /api/admin/content).
+//    This fires on mount and fetches the LATEST values from the
+//    DB. If they differ from SSR props, the state updates and
+//    the top bar re-renders with fresh content.
 //
-// Backward compatibility: when `content` prop is omitted entirely
-// (e.g. if Header is used elsewhere without content), all fields
-// are treated as null and the top bar is hidden. The main header
-// (logo + nav + search + actions) always renders.
+// Why both? SSR props can be stale if there's a caching layer
+// (CDN, proxy, Next.js route cache, HTTP cache, SW cache). The
+// client-side refetch bypasses ALL of those because it's a
+// fresh API call with cache-busting query param.
+//
+// Every field is optional. When null/empty, that element HIDES
+// entirely (no default fallback). When ALL fields are empty,
+// the entire top bar hides (no empty strip).
 // ============================================================
 
 interface HeaderContent {
@@ -39,7 +41,7 @@ interface HeaderContent {
   topBarShipping?: string | null;
   /** Phone number with phone icon + tel: link. Null/empty = hidden. */
   contactPhone?: string | null;
-  /** Pill badge on far right (e.g. "Buka · 08.00–21.00"). Null/empty = hidden. */
+  /** Tagline on far right with leaf icon. Null/empty = hidden. */
   topBarBadge?: string | null;
 }
 
@@ -48,8 +50,7 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   /** Brand name from DB (defaults to "SayurLogi") */
   brandName?: string;
-  /** DB-driven top bar content (admin > Header tab). Optional — when
-   *  omitted or all fields empty, the top bar is hidden. */
+  /** DB-driven top bar content (admin > Header tab). Optional. */
   content?: HeaderContent;
   /** Called when user clicks "Riwayat Pesanan" in the customer menu. */
   onOpenOrderHistory?: () => void;
@@ -59,7 +60,7 @@ export function Header({
   searchQuery,
   onSearchChange,
   brandName = "SayurLogi",
-  content,
+  content: ssrContent,
   onOpenOrderHistory,
 }: HeaderProps) {
   const totalItems = useCartStore((s) => s.getTotalItems());
@@ -67,14 +68,62 @@ export function Header({
   const wishlistCount = useWishlistStore((s) => s.getCount());
   const openWishlist = useWishlistStore((s) => s.openWishlist);
 
-  // Resolve DB-driven top bar fields. Empty/null → element hides.
-  // We do NOT fall back to defaults — admin controls visibility by
-  // clearing the field in the dashboard.
-  const topBarLocation = content?.topBarLocation?.trim() || null;
-  const topBarShipping = content?.topBarShipping?.trim() || null;
-  const phone = content?.contactPhone?.trim() || null;
+  // ============================================================
+  // Client-side refetch — always get fresh top bar values.
+  // ============================================================
+  // Start with SSR props (initial paint, no flash), then fetch
+  // the latest from the API. If the API returns different values,
+  // override the state. The `_t` query param is a cache-buster
+  // that ensures the fetch is never served from HTTP cache.
+  // ============================================================
+  const [liveContent, setLiveContent] = useState<HeaderContent | null>(ssrContent ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // _t = cache-buster (forces fresh response, no HTTP/SW cache)
+    fetch(`/api/admin/content?_t=${Date.now()}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.content) return;
+        const c = data.content;
+        // Only update if values actually changed (avoid unnecessary re-render)
+        const fresh: HeaderContent = {
+          topBarLocation: c.topBarLocation ?? null,
+          topBarShipping: c.topBarShipping ?? null,
+          contactPhone: c.contactPhone ?? null,
+          topBarBadge: c.topBarBadge ?? null,
+        };
+        setLiveContent((prev) => {
+          if (
+            prev?.topBarLocation === fresh.topBarLocation &&
+            prev?.topBarShipping === fresh.topBarShipping &&
+            prev?.contactPhone === fresh.contactPhone &&
+            prev?.topBarBadge === fresh.topBarBadge
+          ) {
+            return prev; // no change — skip re-render
+          }
+          return fresh;
+        });
+      })
+      .catch(() => {
+        // Network error — keep SSR props (best-effort)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Resolve DB-driven top bar fields from LIVE content (refetched).
+  // Empty/null → element hides (no default fallback).
+  const content = liveContent ?? ssrContent ?? {};
+  const topBarLocation = content.topBarLocation?.trim() || null;
+  const topBarShipping = content.topBarShipping?.trim() || null;
+  const phone = content.contactPhone?.trim() || null;
   const phoneDigits = phone ? phone.replace(/[^\d+]/g, "") : null;
-  const topBarBadge = content?.topBarBadge?.trim() || null;
+  const topBarBadge = content.topBarBadge?.trim() || null;
 
   // Hide entire top bar when ALL 4 fields are empty — avoids
   // rendering an empty strip with just icons.

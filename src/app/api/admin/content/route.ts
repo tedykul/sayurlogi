@@ -8,10 +8,24 @@ export const dynamic = "force-dynamic";
 // GET /api/admin/content — read singleton site content (no auth needed
 // for read since content is public anyway; but kept under /admin for
 // consistency with admin UI which always sends auth header).
+//
+// Cache-Control: no-store — prevents browser/CDN/SW from caching
+// the response. This is critical because admin edits must appear
+// immediately on the storefront (the Header component fetches this
+// endpoint client-side to bypass any SSR cache).
 export async function GET() {
   try {
     const row = await db.siteSetting.findUnique({ where: { id: "singleton" } });
-    return NextResponse.json({ success: true, content: row });
+    return NextResponse.json(
+      { success: true, content: row },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("[api/admin/content] GET error:", err);
     return NextResponse.json(
