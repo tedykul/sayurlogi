@@ -755,3 +755,30 @@ model IntegrationConfig {
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
+// ============================================================
+// AbandonedCart — tracks carts left at checkout for recovery.
+// ============================================================
+// Created when customer starts checkout (cart snapshot saved).
+// Updated when order completes (status → converted).
+// Reminder sent via WA after 2h (first) + 24h (final).
+// Expired after 48h if no action.
+// ============================================================
+
+model AbandonedCart {
+  id              String   @id @default(cuid())
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  itemsJson       String
+  total           Int
+  status          String   @default("pending") // pending|converted|expired
+  reminderCount   Int      @default(0)
+  lastReminderAt  DateTime?
+  convertedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([customerPhone])
+  @@index([status])
+  @@index([updatedAt])
+}

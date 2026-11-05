@@ -8,6 +8,7 @@ import { validateCoupon, redeemCoupon } from "@/lib/coupons";
 import { verifyCustomerAuth } from "@/lib/customer-auth";
 import { notifyOrderCreated, notifyAdminNewOrder } from "@/lib/wa-notification";
 import { sendOrderConfirmationEmail } from "@/lib/email-service";
+import { saveAbandonedCart, markCartConverted } from "@/lib/abandoned-cart";
 import { db } from "@/lib/db";
 import { calculateShipping } from "@/lib/delivery-zones";
 import { bookSlot, isSchedulingEnabled } from "@/lib/delivery-slots";
@@ -47,6 +48,20 @@ export async function POST(req: NextRequest) {
     //    products (e.g. items deleted from ERPNext but still in cart).
     //    This prevents "Item not found" errors from ERPNext during
     //    Sales Order creation. Recalculate subtotal from valid items only.
+    //    Also save cart snapshot for abandoned cart recovery tracking.
+    saveAbandonedCart({
+      customerName: payload.customer.name,
+      customerPhone: payload.customer.phone,
+      customerEmail: payload.customer.email,
+      items: payload.items.map((i) => ({
+        productId: i.product.id,
+        name: i.product.name,
+        price: i.product.price,
+        quantity: i.quantity,
+      })),
+      total: payload.total,
+    }).catch(() => {}); // non-blocking, best-effort
+
     const cartItemCodes = payload.items.map((i) => i.product.itemCode).filter(Boolean);
     const validProducts = cartItemCodes.length > 0
       ? await db.product.findMany({
@@ -221,6 +236,9 @@ export async function POST(req: NextRequest) {
         ? `[GOJEK] ${payload.customer.notes}`
         : payload.customer.notes,
     });
+
+    // Mark abandoned cart as converted (order completed successfully)
+    markCartConverted(payload.customer.phone).catch(() => {});
 
     // 7. Redeem coupon (best-effort, after order success).
     //    Increments usedCount + inserts CouponUsage for anti-abuse.
