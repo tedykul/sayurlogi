@@ -64,14 +64,22 @@ export function PromoCarousel({ products, onOpenDetail }: PromoCarouselProps) {
               : 0;
           const rating = product.rating ?? 0;
           return (
-            <motion.button
+            <motion.div
               key={product.id}
               initial={{ opacity: 0, x: 16 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: "-30px" }}
               transition={{ duration: 0.3, delay: Math.min(i * 0.05, 0.3) }}
               onClick={() => handleClick(product)}
-              className="group relative flex w-36 shrink-0 flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-muted text-left ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)] transition-all hover:-translate-y-1 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_16px_40px_-8px_rgba(0,0,0,0.24)] hover:ring-primary/30 md:w-44"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleClick(product);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              className="group relative flex w-36 shrink-0 flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-muted text-left ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)] transition-all hover:-translate-y-1 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_16px_40px_-8px_rgba(0,0,0,0.24)] hover:ring-primary/30 md:w-44 cursor-pointer"
               aria-label={`Lihat detail ${product.name}`}
             >
               {/* Image */}
@@ -125,7 +133,7 @@ export function PromoCarousel({ products, onOpenDetail }: PromoCarouselProps) {
                   </span>
                 </div>
               </div>
-            </motion.button>
+            </motion.div>
           );
         })}
       </div>
