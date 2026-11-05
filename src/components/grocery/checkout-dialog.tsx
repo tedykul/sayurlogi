@@ -755,14 +755,14 @@ function RadioCard({
   return (
     <Label
       htmlFor={`r-${value}`}
-      className={`flex min-w-0 cursor-pointer flex-col gap-1 overflow-hidden rounded-lg bg-gradient-to-br from-card to-muted/30 p-2.5 ring-1 ring-border/50 transition-all hover:ring-border hover:shadow-sm ${accentRing} has-[:checked]:ring-2`}
+      className={`flex min-w-0 cursor-pointer flex-col gap-1.5 overflow-hidden rounded-xl bg-gradient-to-br from-card to-muted/30 p-3 ring-1 ring-border/50 transition-all hover:ring-border hover:shadow-sm ${accentRing} has-[:checked]:ring-2`}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
         <RadioGroupItem value={value} id={`r-${value}`} className="sr-only" />
-        <span className={accentText + " shrink-0"}>{icon}</span>
-        <span className={`font-semibold truncate ${compact ? "text-xs" : "text-sm"}`}>{title}</span>
+        <span className={accentText + " shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-background/50"}>{icon}</span>
+        <span className={`font-semibold truncate ${compact ? "text-sm" : "text-base"}`}>{title}</span>
       </div>
-      <span className="text-xs text-muted-foreground break-words">{desc}</span>
+      <span className="text-xs text-muted-foreground break-words pl-9">{desc}</span>
     </Label>
   );
 }
