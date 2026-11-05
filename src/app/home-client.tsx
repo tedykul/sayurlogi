@@ -104,13 +104,13 @@ export function HomeClient({ content }: HomeClientProps) {
           return;
         }
 
-        // Validate coupon
+        // Validate coupon — send itemCode + category + price + quantity
+        // so the server can compute subtotal + check product/category scope.
         const lines = cartItems.map((i) => ({
-          productId: i.product.id,
-          name: i.product.name,
+          itemCode: i.product.itemCode,
+          category: i.product.category,
           price: i.product.price,
           quantity: i.quantity,
-          category: i.product.category,
         }));
 
         const res = await fetch(`/api/coupons/${encodeURIComponent(code)}/validate`, {
@@ -132,13 +132,13 @@ export function HomeClient({ content }: HomeClientProps) {
           code: data.coupon.code,
           type: data.coupon.type,
           value: data.coupon.value,
-          discount: data.discount,
+          discount: data.discount || 0,
           freeShipping: data.freeShipping,
           minOrder: data.coupon.minOrder,
         });
 
         toast.success(`Kupon ${code.toUpperCase()} diterapkan!`, {
-          description: `Hemat Rp${data.discount.toLocaleString("id-ID")}`,
+          description: `Hemat Rp${(data.discount || 0).toLocaleString("id-ID")}`,
           icon: <Ticket className="h-4 w-4" />,
         });
       } catch {
