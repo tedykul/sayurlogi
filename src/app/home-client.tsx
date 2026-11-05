@@ -34,6 +34,10 @@ import { SharedWishlistDialog } from "@/components/grocery/shared-wishlist-dialo
 import { CustomerAuthDialog } from "@/components/grocery/customer-auth-dialog";
 import { StickyCartBar } from "@/components/grocery/sticky-cart-bar";
 import { useCustomerStore } from "@/lib/store/customer";
+import { useCartStore as useCartStoreForCoupon } from "@/lib/store/cart";
+import { toast } from "sonner";
+import { Ticket } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Product, Category } from "@/types/grocery";
@@ -61,6 +65,93 @@ export function HomeClient({ content }: HomeClientProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const productSectionRef = useRef<HTMLDivElement>(null);
   const { add: addRecentlyViewed } = useRecentlyViewed();
+
+  // Coupon auto-apply via ?coupon=CODE URL param
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const autoApplyAttempted = useRef(false);
+  const applyCoupon = useCartStoreForCoupon((s) => s.applyCoupon);
+  const cartItems = useCartStoreForCoupon((s) => s.items);
+  const existingCoupon = useCartStoreForCoupon((s) => s.coupon);
+
+  useEffect(() => {
+    if (autoApplyAttempted.current) return;
+    const code = searchParams.get("coupon");
+    if (!code) return;
+
+    // Don't override existing coupon
+    if (existingCoupon) {
+      autoApplyAttempted.current = true;
+      router.replace("/");
+      return;
+    }
+
+    autoApplyAttempted.current = true;
+
+    const tryApply = async () => {
+      try {
+        // Track click
+        await fetch(`/api/coupons/${encodeURIComponent(code)}/track`, {
+          method: "POST",
+        }).catch(() => {});
+
+        // If cart empty, show info toast
+        if (cartItems.length === 0) {
+          toast(`Kupon ${code.toUpperCase()} siap dipakai`, {
+            description: "Tambahkan produk ke keranjang untuk menerapkan kupon otomatis.",
+            icon: <Ticket className="h-4 w-4 text-green-600" />,
+          });
+          return;
+        }
+
+        // Validate coupon
+        const lines = cartItems.map((i) => ({
+          productId: i.product.id,
+          name: i.product.name,
+          price: i.product.price,
+          quantity: i.quantity,
+          category: i.product.category,
+        }));
+
+        const res = await fetch(`/api/coupons/${encodeURIComponent(code)}/validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lines, shippingFee: 10000 }),
+        });
+        const data = await res.json();
+
+        if (!data.valid) {
+          toast.error(`Kupon ${code.toUpperCase()} tidak valid`, {
+            description: data.reason,
+          });
+          return;
+        }
+
+        // Apply coupon to cart
+        applyCoupon({
+          code: data.coupon.code,
+          type: data.coupon.type,
+          value: data.coupon.value,
+          discount: data.discount,
+          freeShipping: data.freeShipping,
+          minOrder: data.coupon.minOrder,
+        });
+
+        toast.success(`Kupon ${code.toUpperCase()} diterapkan!`, {
+          description: `Hemat Rp${data.discount.toLocaleString("id-ID")}`,
+          icon: <Ticket className="h-4 w-4" />,
+        });
+      } catch {
+        toast.error("Gagal menerapkan kupon dari URL");
+      } finally {
+        // Clean URL
+        router.replace("/");
+      }
+    };
+
+    const t = setTimeout(tryApply, 500);
+    return () => clearTimeout(t);
+  }, [searchParams, cartItems.length, existingCoupon, applyCoupon, router]);
 
   const handleOpenDetail = (product: Product) => {
     setDetailProduct(product);

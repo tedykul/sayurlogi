@@ -531,6 +531,13 @@ model Coupon {
   scopeValue  String?
   /// Optional internal note (admin only)
   note        String?
+  // Share + tracking fields (backward compatible — all default)
+  batchId     String?
+  description String?
+  clickCount  Int      @default(0)
+  shareCount  Int      @default(0)
+  printedCount Int     @default(0)
+  printedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
