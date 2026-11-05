@@ -11,45 +11,41 @@ interface Params {
 }
 
 // ============================================================
-// POST /api/admin/coupons/[id]/pdf
+// GET /api/admin/coupons/[id]/pdf
 // ============================================================
-// Returns HTML page with coupon + QR code (printable as PDF).
-// Admin opens in new tab, then Ctrl+P → Save as PDF.
+// Returns a printable HTML page (with QR code) for a single
+// coupon. Admin opens it in a new tab and uses Ctrl+P → Save as
+// PDF. The QR encodes the share URL (/?coupon=CODE) so scanning
+// auto-applies the coupon on the storefront.
+//
+// Side-effect: increments printedCount + sets printedAt (best-effort).
 // ============================================================
 
-export async function POST(_req: NextRequest, { params }: Params) {
-  const auth = await verifyAuth();
-  if (!auth) {
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+async function buildPdf(couponId: string): Promise<NextResponse> {
+  const coupon = await db.coupon.findUnique({ where: { id: couponId } });
+
+  if (!coupon) {
+    return NextResponse.json(
+      { success: false, message: "Kupon tidak ditemukan." },
+      { status: 404 }
+    );
   }
 
-  try {
-    const { id } = await params;
-    const coupon = await db.coupon.findUnique({ where: { id } });
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const shareUrl = `${baseUrl}/?coupon=${coupon.code}`;
+  const qrDataUrl = await generateQRCodeDataURL(shareUrl);
 
-    if (!coupon) {
-      return NextResponse.json(
-        { success: false, message: "Kupon tidak ditemukan." },
-        { status: 404 }
-      );
-    }
+  // Mark as printed (best-effort, non-blocking)
+  markCouponPrinted([coupon.code]).catch(() => {});
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const shareUrl = `${baseUrl}/?coupon=${coupon.code}`;
-    const qrDataUrl = await generateQRCodeDataURL(shareUrl);
+  const discountText =
+    coupon.type === "percent"
+      ? `${coupon.value}% OFF`
+      : coupon.type === "fixed"
+        ? `Rp${coupon.value.toLocaleString("id-ID")} OFF`
+        : "GRATIS ONGKIR";
 
-    // Mark as printed
-    markCouponPrinted([coupon.code]).catch(() => {});
-
-    // Return printable HTML
-    const discountText =
-      coupon.type === "percent"
-        ? `${coupon.value}% OFF`
-        : coupon.type === "fixed"
-          ? `Rp${coupon.value.toLocaleString("id-ID")} OFF`
-          : "GRATIS ONGKIR";
-
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -57,7 +53,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #f0fdf4; padding: 20px; display: flex; justify-content: center; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f0fdf4; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
   .coupon-card {
     width: 350px; background: white; border-radius: 16px; overflow: hidden;
     box-shadow: 0 4px 24px rgba(0,0,0,0.1); border: 2px dashed #16a34a;
@@ -100,11 +96,32 @@ export async function POST(_req: NextRequest, { params }: Params) {
 </body>
 </html>`;
 
-    return new NextResponse(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
-  } catch (err: any) {
-    console.error("[api/admin/coupons/[id]/pdf] error:", err);
-    return NextResponse.json({ success: false, message: "Server error." }, { status: 500 });
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+export async function GET(_req: NextRequest, { params }: Params) {
+  const auth = await verifyAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized." },
+      { status: 401 }
+    );
   }
+  try {
+    const { id } = await params;
+    return await buildPdf(id);
+  } catch (err: any) {
+    console.error("[api/admin/coupons/[id]/pdf] GET error:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error." },
+      { status: 500 }
+    );
+  }
+}
+
+// POST kept for backward compatibility (same behavior).
+export async function POST(req: NextRequest, { params }: Params) {
+  return GET(req, { params });
 }

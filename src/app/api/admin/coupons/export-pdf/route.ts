@@ -7,65 +7,73 @@ import { formatIDR } from "@/lib/mock-data";
 export const dynamic = "force-dynamic";
 
 // ============================================================
-// POST /api/admin/coupons/export-pdf
+// GET  /api/admin/coupons/export-pdf?ids=id1,id2,id3
+// POST /api/admin/coupons/export-pdf   { ids: string[] }
 // ============================================================
-// Body: { ids: string[] }
-// Returns HTML page with multiple coupons + QR codes (printable).
+// Returns a printable HTML page with multiple coupon cards +
+// QR codes. Admin opens it in a new tab and uses Ctrl+P → Save
+// as PDF. Each QR encodes the share URL (/?coupon=CODE).
+//
+// Side-effect: increments printedCount + sets printedAt for
+// every coupon in the batch (best-effort).
 // ============================================================
 
-export async function POST(req: NextRequest) {
-  const auth = await verifyAuth();
-  if (!auth) {
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+function parseIds(req: NextRequest): string[] {
+  // GET: read ?ids=id1,id2 (comma-separated)
+  const url = new URL(req.url);
+  const idsParam = url.searchParams.get("ids") || "";
+  if (idsParam) {
+    return idsParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+async function buildPdf(ids: string[]): Promise<NextResponse> {
+  if (ids.length === 0) {
+    return NextResponse.json(
+      { success: false, message: "Pilih minimal 1 kupon." },
+      { status: 400 }
+    );
   }
 
-  try {
-    const body = await req.json().catch(() => ({}));
-    const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+  const coupons = await db.coupon.findMany({
+    where: { id: { in: ids } },
+    orderBy: { code: "asc" },
+  });
 
-    if (ids.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Pilih minimal 1 kupon." },
-        { status: 400 }
-      );
-    }
-
-    const coupons = await db.coupon.findMany({
-      where: { id: { in: ids } },
-      orderBy: { code: "asc" },
-    });
-
-    if (coupons.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Kupon tidak ditemukan." },
-        { status: 404 }
-      );
-    }
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    // Generate QR codes for all coupons
-    const couponsWithQR = await Promise.all(
-      coupons.map(async (c) => {
-        const shareUrl = `${baseUrl}/?coupon=${c.code}`;
-        const qrDataUrl = await generateQRCodeDataURL(shareUrl);
-        return { ...c, shareUrl, qrDataUrl };
-      })
+  if (coupons.length === 0) {
+    return NextResponse.json(
+      { success: false, message: "Kupon tidak ditemukan." },
+      { status: 404 }
     );
+  }
 
-    // Mark all as printed
-    markCouponPrinted(coupons.map((c) => c.code)).catch(() => {});
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    // Generate HTML
-    const cards = couponsWithQR
-      .map((c) => {
-        const discountText =
-          c.type === "percent"
-            ? `${c.value}% OFF`
-            : c.type === "fixed"
-              ? `${formatIDR(c.value)} OFF`
-              : "GRATIS ONGKIR";
-        return `<div class="coupon-card">
+  // Generate QR codes for all coupons in parallel
+  const couponsWithQR = await Promise.all(
+    coupons.map(async (c) => {
+      const shareUrl = `${baseUrl}/?coupon=${c.code}`;
+      const qrDataUrl = await generateQRCodeDataURL(shareUrl);
+      return { ...c, shareUrl, qrDataUrl };
+    })
+  );
+
+  // Mark all as printed (best-effort, non-blocking)
+  markCouponPrinted(coupons.map((c) => c.code)).catch(() => {});
+
+  const cards = couponsWithQR
+    .map((c) => {
+      const discountText =
+        c.type === "percent"
+          ? `${c.value}% OFF`
+          : c.type === "fixed"
+            ? `${formatIDR(c.value)} OFF`
+            : "GRATIS ONGKIR";
+      return `<div class="coupon-card">
   <div class="coupon-header">
     <h1>🌿 SayurLogi</h1>
     <p>Kupon Diskon</p>
@@ -79,10 +87,10 @@ export async function POST(req: NextRequest) {
   </div>
   <div class="coupon-footer">SayurLogi</div>
 </div>`;
-      })
-      .join("");
+    })
+    .join("");
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -110,11 +118,48 @@ ${cards}
 </body>
 </html>`;
 
-    return new NextResponse(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+export async function GET(req: NextRequest) {
+  const auth = await verifyAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+  try {
+    const ids = parseIds(req);
+    return await buildPdf(ids);
   } catch (err: any) {
-    console.error("[api/admin/coupons/export-pdf] error:", err);
-    return NextResponse.json({ success: false, message: "Server error." }, { status: 500 });
+    console.error("[api/admin/coupons/export-pdf] GET error:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await verifyAuth();
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, message: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+  try {
+    const body = await req.json().catch(() => ({}));
+    const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+    return await buildPdf(ids);
+  } catch (err: any) {
+    console.error("[api/admin/coupons/export-pdf] POST error:", err);
+    return NextResponse.json(
+      { success: false, message: "Server error." },
+      { status: 500 }
+    );
   }
 }

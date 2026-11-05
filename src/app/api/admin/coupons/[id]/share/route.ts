@@ -6,6 +6,7 @@ import {
   buildWhatsAppShareUrl,
   trackCouponShare,
 } from "@/lib/coupon-service";
+import { logAdminAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,12 @@ interface Params {
 // ============================================================
 // POST /api/admin/coupons/[id]/share
 // ============================================================
-// Body: { baseUrl }
-// Returns: { shareUrl, whatsappUrl }
+// Body: { baseUrl? }
+// Returns: { shareUrl, whatsappUrl, code }
+//
+// Side-effect: increments shareCount + logs audit action.
+// The admin UI opens `whatsappUrl` (wa.me/?text=...) in a new
+// tab so the admin can pick a recipient.
 // ============================================================
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -62,8 +67,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       shareUrl,
     });
 
-    // Track share
+    // Track share (best-effort, non-blocking)
     trackCouponShare(coupon.code).catch(() => {});
+    logAdminAction({
+      action: "coupon_share",
+      target: `coupon:${coupon.code}`,
+      success: true,
+      userId: auth.userId,
+      userEmail: auth.email,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

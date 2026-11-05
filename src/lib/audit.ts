@@ -22,7 +22,24 @@ export type AuditAction =
   | "delete"
   | "publish_toggle"
   | "reorder"
-  | "unauthorized_attempt";
+  | "unauthorized_attempt"
+  // Coupon module (specific actions for finer-grained logs)
+  | "coupon_create"
+  | "coupon_update"
+  | "coupon_delete"
+  | "coupon_share"
+  | "coupon_print"
+  // Delivery module
+  | "biteship_settings_update"
+  | "maps_settings_update"
+  | "delivery_settings_update"
+  | "slot_templates_update"
+  | "delivery_slot_update"
+  | "delivery_zone_create"
+  | "delivery_zone_update"
+  | "delivery_zone_delete"
+  // Reviews
+  | "review_moderate";
 
 interface LogOptions {
   action: AuditAction;
