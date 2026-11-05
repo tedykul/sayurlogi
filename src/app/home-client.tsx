@@ -385,6 +385,18 @@ export function HomeClient({ content }: HomeClientProps) {
         onSelectRelated={(p) => {
           setDetailProduct(p);
         }}
+        // Swipe navigation: pass full product list + navigate handler.
+        // Enabled when there are 2+ products. Backward compatible —
+        // if products array is empty/undefined, swipe is disabled.
+        products={products.length > 1 ? products : undefined}
+        onNavigate={(p) => {
+          setDetailProduct(p);
+          // Scroll the dialog content back to top on navigate
+          requestAnimationFrame(() => {
+            const scrollArea = document.querySelector("[data-radix-scroll-area-viewport]");
+            if (scrollArea) scrollArea.scrollTop = 0;
+          });
+        }}
       />
       <WishlistSheet onProductClick={handleOpenDetail} />
       <ContactSheet

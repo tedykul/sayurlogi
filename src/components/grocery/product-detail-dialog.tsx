@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,14 +28,27 @@ import {
   X,
   Clock,
   Scale,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore } from "@/lib/store/cart";
 import { formatIDR } from "@/lib/mock-data";
 import type { Product, ProductVariant } from "@/types/grocery";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProductImage } from "./product-image";
+
+// ============================================================
+// Swipe thresholds — tuned for grocery detail dialog.
+// ============================================================
+// - SWIPE_MIN_DISTANCE: minimum px traveled to register a swipe
+//   (prevents accidental taps from triggering navigation)
+// - SWIPE_MAX_VERTICAL: max vertical travel before we treat it
+//   as a vertical scroll (not a horizontal swipe)
+// ============================================================
+const SWIPE_MIN_DISTANCE = 50;
+const SWIPE_MAX_VERTICAL = 80;
 
 interface ProductDetailDialogProps {
   product: Product | null;
@@ -47,12 +60,22 @@ interface ProductDetailDialogProps {
   relatedProducts?: Product[];
   /** Called when user clicks a related product. Optional. */
   onSelectRelated?: (product: Product) => void;
+  /**
+   * Full product list (for swipe navigation between products).
+   * When provided, prev/next arrow buttons + swipe gestures become active.
+   * The dialog computes the current index from `product` and calls
+   * `onNavigate` when the user swipes or clicks an arrow.
+   * Optional — if omitted, swipe navigation is disabled (backward compat).
+   */
+  products?: Product[];
+  /** Called when user swipes/clicks to navigate to prev/next product. */
+  onNavigate?: (product: Product) => void;
 }
 
 /**
  * Wrapper that mounts a fresh inner component (keyed by product id) so the
  * qty state resets automatically when the user opens a different product —
- * no useEffect needed.
+ * no useEffect needed. Also handles swipe gesture detection.
  */
 export function ProductDetailDialog({
   product,
@@ -61,7 +84,25 @@ export function ProductDetailDialog({
   onBuyNow,
   relatedProducts,
   onSelectRelated,
+  products,
+  onNavigate,
 }: ProductDetailDialogProps) {
+  // Compute current index in the products list (for prev/next nav).
+  const currentIndex = product && products ? products.findIndex((p) => p.id === product.id) : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = products ? currentIndex >= 0 && currentIndex < products.length - 1 : false;
+  const canNavigate = !!products && !!onNavigate && currentIndex >= 0;
+
+  const goToPrev = useCallback(() => {
+    if (!canNavigate || !hasPrev || !products || !onNavigate) return;
+    onNavigate(products[currentIndex - 1]);
+  }, [canNavigate, hasPrev, products, currentIndex, onNavigate]);
+
+  const goToNext = useCallback(() => {
+    if (!canNavigate || !hasNext || !products || !onNavigate) return;
+    onNavigate(products[currentIndex + 1]);
+  }, [canNavigate, hasNext, products, currentIndex, onNavigate]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-3xl gap-0">
@@ -76,6 +117,11 @@ export function ProductDetailDialog({
             onBuyNow={onBuyNow}
             relatedProducts={relatedProducts}
             onSelectRelated={onSelectRelated}
+            canNavigate={canNavigate}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            onPrev={goToPrev}
+            onNext={goToNext}
           />
         ) : null}
       </DialogContent>
@@ -89,18 +135,83 @@ function ProductDetailContent({
   onBuyNow,
   relatedProducts,
   onSelectRelated,
+  canNavigate,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
 }: {
   product: Product;
   onOpenChange: (open: boolean) => void;
   onBuyNow?: () => void;
   relatedProducts?: Product[];
   onSelectRelated?: (product: Product) => void;
+  canNavigate: boolean;
+  hasPrev: boolean;
+  hasNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
 }) {
   const [qty, setQty] = useState(1);
 
   const addItem = useCartStore((s) => s.addItem);
   const items = useCartStore((s) => s.items);
   const updateQty = useCartStore((s) => s.updateQty);
+
+  // ============================================================
+  // Swipe gesture detection — touch start/move/end.
+  // ============================================================
+  // We capture touchstart coordinates, then on touchend compute the
+  // delta. If horizontal travel > SWIPE_MIN_DISTANCE AND vertical
+  // travel < SWIPE_MAX_VERTICAL, it's a swipe (left → next, right → prev).
+  // We use passive listeners to not block scrolling.
+  //
+  // Keyboard navigation (Alt+ArrowLeft/Right) is also wired for
+  // desktop accessibility.
+  // ============================================================
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!canNavigate) return;
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }, [canNavigate]);
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!canNavigate || !touchStart.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+
+    // Ignore if mostly vertical (it's a scroll, not a swipe)
+    if (Math.abs(dy) > SWIPE_MAX_VERTICAL) return;
+    if (Math.abs(dx) < SWIPE_MIN_DISTANCE) return;
+
+    if (dx > 0) {
+      // Swipe right → previous product
+      if (hasPrev) onPrev();
+    } else {
+      // Swipe left → next product
+      if (hasNext) onNext();
+    }
+  }, [canNavigate, hasPrev, hasNext, onPrev, onNext]);
+
+  // Keyboard navigation (Alt+Arrow) for desktop accessibility
+  useEffect(() => {
+    if (!canNavigate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "ArrowLeft" && hasPrev) {
+        e.preventDefault();
+        onPrev();
+      } else if (e.altKey && e.key === "ArrowRight" && hasNext) {
+        e.preventDefault();
+        onNext();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canNavigate, hasPrev, hasNext, onPrev, onNext]);
 
   const outOfStock = !product.stock || product.stock <= 0 || !product.price || product.price <= 0;
   // Variant state
@@ -167,7 +278,46 @@ function ProductDetailContent({
   };
 
   return (
-    <div className="grid max-h-[92vh] grid-cols-1 overflow-hidden md:grid-cols-2">
+    <div
+      className="grid max-h-[92vh] grid-cols-1 overflow-hidden md:grid-cols-2 relative"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* ============ Swipe navigation arrows (desktop + touch fallback) ============ */}
+      {canNavigate && (
+        <>
+          <button
+            onClick={onPrev}
+            disabled={!hasPrev}
+            aria-label="Produk sebelumnya"
+            className={cn(
+              "absolute left-1 top-1/2 z-20 -translate-y-1/2",
+              "flex h-9 w-9 items-center justify-center rounded-full",
+              "bg-background/80 backdrop-blur-sm border border-border/60 shadow-md",
+              "transition-all hover:bg-background hover:scale-110",
+              "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            )}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!hasNext}
+            aria-label="Produk berikutnya"
+            className={cn(
+              "absolute right-1 top-1/2 z-20 -translate-y-1/2",
+              "flex h-9 w-9 items-center justify-center rounded-full",
+              "bg-background/80 backdrop-blur-sm border border-border/60 shadow-md",
+              "transition-all hover:bg-background hover:scale-110",
+              "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            )}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
       {/* ============ Left: visual ============ */}
       <div className="relative hidden md:block bg-gradient-to-br from-secondary/40 via-secondary/20 to-background border-r border-border/40">
         <div className="flex h-full min-h-[400px] items-center justify-center p-8">
@@ -228,6 +378,14 @@ function ProductDetailContent({
               <Badge className="bg-primary text-primary-foreground text-xs font-bold">
                 <Leaf className="h-2.5 w-2.5 mr-0.5" /> Organik
               </Badge>
+            </div>
+          )}
+          {/* Swipe hint — subtle dots showing position in product list (mobile) */}
+          {canNavigate && (hasPrev || hasNext) && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 text-[10px] text-muted-foreground/60">
+              <ChevronLeft className="h-3 w-3" />
+              <span>Geser untuk lihat produk lain</span>
+              <ChevronRight className="h-3 w-3" />
             </div>
           )}
         </div>
