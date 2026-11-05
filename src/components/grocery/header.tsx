@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart, Leaf, Search, MapPin, Phone, Heart, Truck } from "lucide-react";
+import { ShoppingCart, Leaf, Search, MapPin, Phone, Heart, Truck, Tag } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,65 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MainNav, MobileNav } from "./main-nav";
 import { CustomerMenuButton } from "./customer-menu-button";
 
+// ============================================================
+// Header — sticky storefront header with top bar (desktop only).
+// ============================================================
+// Top bar fields are DB-driven via the `content` prop (edited in
+// admin > Header tab). All fields are optional with sensible
+// defaults — when `content` is undefined or a field is null,
+// the hardcoded default is shown (backward compatible).
+//
+// Fields:
+//   topBarShipping — promo line next to "Antar seluruh kota"
+//   contactPhone   — phone number (right side, tel: link)
+//   topBarBadge    — pill badge shown next to phone (e.g. "Buka")
+// ============================================================
+
+interface HeaderContent {
+  /** Promo shipping line (left side, after "Antar seluruh kota · "). Null = use default. */
+  topBarShipping?: string | null;
+  /** Phone number (right side). Null = use default. */
+  contactPhone?: string | null;
+  /** Pill badge next to phone (e.g. "Buka · 08.00–21.00"). Null/empty = hidden. */
+  topBarBadge?: string | null;
+}
+
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   /** Brand name from DB (defaults to "SayurLogi") */
   brandName?: string;
+  /** DB-driven top bar content (admin > Header tab). Optional — defaults used when omitted. */
+  content?: HeaderContent;
   /** Called when user clicks "Riwayat Pesanan" in the customer menu. */
   onOpenOrderHistory?: () => void;
 }
 
-export function Header({ searchQuery, onSearchChange, brandName = "SayurLogi", onOpenOrderHistory }: HeaderProps) {
+// Defaults — used when content prop is omitted or field is null.
+// These match the previous hardcoded values so existing behavior
+// is preserved when admin hasn't customized anything.
+const DEFAULT_TOP_BAR_SHIPPING = "Gratis ongkir min. Rp50rb";
+const DEFAULT_PHONE = "0800-1234-5678";
+
+export function Header({
+  searchQuery,
+  onSearchChange,
+  brandName = "SayurLogi",
+  content,
+  onOpenOrderHistory,
+}: HeaderProps) {
   const totalItems = useCartStore((s) => s.getTotalItems());
   const openCart = useCartStore((s) => s.openCart);
   const wishlistCount = useWishlistStore((s) => s.getCount());
   const openWishlist = useWishlistStore((s) => s.openWishlist);
+
+  // Resolve DB-driven top bar fields with defaults.
+  // Null or empty string → fallback to default (so admin can
+  // never accidentally render an empty top bar line).
+  const topBarShipping = content?.topBarShipping?.trim() || DEFAULT_TOP_BAR_SHIPPING;
+  const phone = content?.contactPhone?.trim() || DEFAULT_PHONE;
+  const phoneDigits = phone.replace(/[^\d+]/g, ""); // for tel: link
+  const topBarBadge = content?.topBarBadge?.trim() || null;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur-lg supports-[backdrop-filter]:bg-background/70 shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_12px_-4px_rgba(0,0,0,0.08)]">
@@ -37,21 +82,30 @@ export function Header({ searchQuery, onSearchChange, brandName = "SayurLogi", o
               <span className="text-muted-foreground">·</span>
               <span className="flex items-center gap-1 text-foreground/60">
                 <Truck className="h-3.5 w-3.5 text-primary" />
-                Gratis ongkir min. Rp50rb
+                {topBarShipping}
               </span>
             </span>
             <a
-              href="tel:080012345678"
+              href={`tel:${phoneDigits}`}
               className="flex items-center gap-1.5 hover:text-primary transition-colors"
             >
               <Phone className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium">0800-1234-5678</span>
+              <span className="font-medium">{phone}</span>
             </a>
           </div>
-          <span className="flex items-center gap-1.5 text-primary font-semibold">
-            <Leaf className="h-3.5 w-3.5" />
-            Petani Lokal • 100% Segar
-          </span>
+          <div className="flex items-center gap-2">
+            {topBarBadge ? (
+              <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <Tag className="h-3 w-3" />
+                {topBarBadge}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-primary font-semibold">
+                <Leaf className="h-3.5 w-3.5" />
+                Petani Lokal • 100% Segar
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
