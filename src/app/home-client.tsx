@@ -267,6 +267,14 @@ export function HomeClient({ content }: HomeClientProps) {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         brandName={content.brandName ?? "SayurLogi"}
+        // Pass DB-driven top bar fields (admin > Header tab).
+        // Only the 3 fields the top bar renders; not the whole
+        // PageContent object (keeps Header props minimal + typed).
+        content={{
+          topBarShipping: content.topBarShipping,
+          contactPhone: content.contactPhone,
+          topBarBadge: content.topBarBadge,
+        }}
         onOpenOrderHistory={() => setHistoryOpen(true)}
       />
 
