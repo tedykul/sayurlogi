@@ -83,26 +83,28 @@ export function TrustBadges({ variant = "compact", className }: TrustBadgesProps
         ))}
       </div>
 
-      {/* Payment methods — branded logo chips, wraps on narrow viewports */}
-      <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-        <span className="text-xs text-muted-foreground whitespace-nowrap mr-0.5">Metode pembayaran:</span>
-        {PAYMENT_METHODS.map((m) => (
-          <span
-            key={m.label}
-            className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 whitespace-nowrap"
-            title={m.label}
-          >
-            <Image
-              src={m.logo}
-              alt={m.label}
-              width={28}
-              height={20}
-              className="h-5 w-auto"
-              unoptimized
-            />
-            <span className="text-xs font-medium">{m.label}</span>
-          </span>
-        ))}
+      {/* Payment methods — 3-column grid (vertical wrap), branded logos */}
+      <div className="pt-1">
+        <span className="block text-xs text-muted-foreground whitespace-nowrap mb-2 text-center">Metode pembayaran:</span>
+        <div className="grid grid-cols-3 gap-2">
+          {PAYMENT_METHODS.map((m) => (
+            <div
+              key={m.label}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-border/40 bg-background px-2 py-2 whitespace-nowrap"
+              title={m.label}
+            >
+              <Image
+                src={m.logo}
+                alt={m.label}
+                width={32}
+                height={22}
+                className="h-5 w-auto"
+                unoptimized
+              />
+              <span className="text-xs font-medium">{m.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

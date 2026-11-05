@@ -316,9 +316,9 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
         </div>
       </div>
 
-      {/* ============ Payment methods — branded logos (mobile) / card (desktop) ============ */}
+      {/* ============ Payment methods — 3-column grid, branded logos (mobile + desktop) ============ */}
       <div className="mx-auto max-w-7xl px-4 pb-4">
-        {/* Mobile: grid of branded logo chips */}
+        {/* Mobile: 3-column grid of branded logo chips */}
         <div className="md:hidden">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-muted/50 p-3.5 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
             <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
@@ -347,17 +347,17 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
             </div>
           </div>
         </div>
-        {/* Desktop: elevated card with branded logos */}
-        <div className="hidden md:flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)] md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
+        {/* Desktop: elevated card with 3-column grid of branded logos */}
+        <div className="hidden md:block rounded-2xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
+          <div className="flex items-center gap-2 mb-3">
             <CreditCard className="h-4 w-4 text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-foreground">Metode Pembayaran</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-9">
             {PAYMENT_METHODS.map((m) => (
               <div
                 key={m.label}
-                className="flex items-center gap-1.5 rounded-md bg-background px-2.5 py-1.5 ring-1 ring-border shadow-sm"
+                className="flex items-center justify-center gap-1.5 rounded-md bg-background px-2.5 py-2 ring-1 ring-border shadow-sm"
                 title={m.label}
               >
                 <Image
