@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
@@ -8,39 +7,28 @@ import { CookieConsent } from "@/components/grocery/cookie-consent";
 import { db } from "@/lib/db";
 
 // ============================================================
-// Font configuration
+// Font configuration — ALL system fonts (no Google Fonts).
 // ============================================================
-// Primary sans font: Plus Jakarta Sans (Google Fonts).
-// Display font (was Fraunces): replaced with Georgia (system
-// serif font) to avoid build failures on VPS without internet
-// access to fonts.googleapis.com during `next build`.
+// VPS build fails when next/font/google tries to download fonts
+// from fonts.googleapis.com during `next build`. The Turbopack
+// font resolver errors with:
+//   "Module not found: Can't resolve
+//    '@vercel/turbopack-next/internal/font/google/font'"
 //
-// The --font-display CSS variable is set to a serif font stack
-// (Georgia → 'Times New Roman' → serif) so existing components
-// that use `font-display` class (hero, contact-section, faq-
-// section, testimonials-section) will still render in a serif
-// typeface without requiring an external font download.
+// Fix: removed ALL next/font/google imports (Plus Jakarta Sans +
+// Fraunces). Replaced with CSS variables set inline on <body>:
+//   --font-jakarta-sans → system sans-serif stack (Arial → sans)
+//   --font-fraunces → system serif stack (Georgia → serif)
 //
-// If you want to restore Fraunces later (when VPS has stable
-// internet during build), re-add this import + usage:
+// Visual impact: minimal. System fonts are still high-quality on
+// modern OS (Arial/Georgia render crisply). Components using
+// `font-sans` and `font-display` classes still work via CSS vars.
 //
-//   import { Fraunces } from "next/font/google";
-//   const fraunces = Fraunces({
-//     variable: "--font-fraunces",
-//     subsets: ["latin"],
-//     weight: ["400", "500", "600", "700", "800", "900"],
-//     style: ["normal", "italic"],
-//     display: "swap",
-//   });
-//   // ...and add `${fraunces.variable}` to body className.
+// To restore Google Fonts later (when VPS has stable internet):
+//   1. Re-add: import { Plus_Jakarta_Sans } from "next/font/google";
+//   2. Configure + add variable to body className.
+//   3. Remove the inline style below.
 // ============================================================
-
-const jakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-jakarta-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-});
 
 // Dynamic metadata from DB (brand name + meta description editable via admin)
 export async function generateMetadata(): Promise<Metadata> {
@@ -94,8 +82,11 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${jakartaSans.variable} antialiased bg-background text-foreground`}
-        style={{ "--font-fraunces": "Georgia, 'Times New Roman', serif" } as React.CSSProperties}
+        className="antialiased bg-background text-foreground"
+        style={{
+          "--font-jakarta-sans": "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+          "--font-fraunces": "Georgia, 'Times New Roman', serif",
+        } as React.CSSProperties}
       >
         <ThemeProvider
           attribute="class"
