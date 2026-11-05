@@ -1,14 +1,24 @@
 // ============================================================
 // SayurLogi Service Worker — PWA offline support + caching.
 // ============================================================
+// Strategies:
+//   - API (/api/*): networkFirst — always fresh, offline fallback.
+//   - Static assets (images, fonts, /_next/static/*): staleWhileRevalidate
+//     — fast load, background revalidation. Static assets don't change
+//     often (hashed filenames), so stale is safe.
+//   - Navigation requests (page loads): networkFirst — always fetch
+//     fresh HTML when online. This is CRITICAL because page content
+//     (top bar, hero, promo, etc.) is admin-editable. With SWR, admin
+//     would need to reload TWICE to see their changes. networkFirst
+//     ensures changes appear on the first reload, with offline fallback.
+// ============================================================
 
-const CACHE_VERSION = "v28";
+const CACHE_VERSION = "v29";
 const STATIC_CACHE = `sayurlogi-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `sayurlogi-page-${CACHE_VERSION}`;
 const API_CACHE = `sayurlogi-api-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
-  "/",
   "/manifest.json",
   "/logo.svg",
 ];
@@ -61,8 +71,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Navigation requests (page loads) — networkFirst so admin-editable
+  // content (top bar, hero, promo, etc.) always reflects the latest
+  // DB state on reload. Falls back to cached page only when offline.
   if (request.mode === "navigate") {
-    event.respondWith(staleWhileRevalidate(request, PAGE_CACHE));
+    event.respondWith(networkFirst(request, PAGE_CACHE));
     return;
   }
 
