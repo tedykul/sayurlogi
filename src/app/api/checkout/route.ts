@@ -7,6 +7,7 @@ import { syncAllFromErpnext } from "@/lib/erpnext-sync";
 import { validateCoupon, redeemCoupon } from "@/lib/coupons";
 import { verifyCustomerAuth } from "@/lib/customer-auth";
 import { notifyOrderCreated, notifyAdminNewOrder } from "@/lib/wa-notification";
+import { sendOrderConfirmationEmail } from "@/lib/email-service";
 import { db } from "@/lib/db";
 import { calculateShipping } from "@/lib/delivery-zones";
 import { bookSlot, isSchedulingEnabled } from "@/lib/delivery-slots";
@@ -255,6 +256,31 @@ export async function POST(req: NextRequest) {
     notifyAdminNewOrder(order.id).catch((err) => {
       console.warn("[checkout] WA notifyAdminNewOrder failed (non-blocking):", err.message);
     });
+
+    // 8c. Email confirmation + invoice PDF (best-effort, non-blocking).
+    //     Only sends if email is configured + customer provided email.
+    if (payload.customer.email) {
+      sendOrderConfirmationEmail({
+        to: payload.customer.email,
+        order: {
+          trackingId: order.trackingId,
+          customerName: payload.customer.name,
+          customerEmail: payload.customer.email,
+          customerPhone: payload.customer.phone,
+          customerAddress: payload.customer.address,
+          customerCity: payload.customer.city,
+          items: order.items,
+          subtotal: order.subtotal,
+          shipping: order.shipping,
+          discount: order.discount,
+          total: order.total,
+          couponCode: order.couponCode,
+          createdAt: order.createdAt,
+        },
+      }).catch((err) => {
+        console.warn("[checkout] Email confirmation failed (non-blocking):", err.message);
+      });
+    }
 
     // 9. Sync product stock from ERPNext (non-blocking, background)
     if (!erpResult.mock) {

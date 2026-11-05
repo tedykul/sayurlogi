@@ -109,10 +109,33 @@ export const WA_KEYS = {
   ADMIN_PHONE: "wa_admin_phone",
 } as const;
 
+// ============================================================
+// Email (SMTP) config keys — for order confirmation + invoice PDF.
+// ============================================================
+// host: SMTP server (e.g. smtp.gmail.com, smtp.mailgun.org)
+// port: 587 (STARTTLS) or 465 (SSL)
+// user: SMTP username (e.g. your-email@gmail.com)
+// password: SMTP password or app-specific password. SECRET.
+// fromName: Display name in From field (e.g. "SayurLogi")
+// fromEmail: From email address (e.g. noreply@sayurlogi.id)
+// enabled: master toggle. When false, no emails sent.
+// ============================================================
+
+export const EMAIL_KEYS = {
+  HOST: "email_host",
+  PORT: "email_port",
+  USER: "email_user",
+  PASSWORD: "email_password",
+  FROM_NAME: "email_from_name",
+  FROM_EMAIL: "email_from_email",
+  ENABLED: "email_enabled",
+} as const;
+
 const SECRET_KEYS = new Set([
   ERP_KEYS.API_SECRET,
   MIDTRANS_KEYS.SERVER_KEY,
   WA_KEYS.API_KEY,
+  EMAIL_KEYS.PASSWORD,
 ]);
 
 // In-memory cache
