@@ -88,7 +88,7 @@ export function ContactSheet({ open, onOpenChange, content }: ContactSheetProps)
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-base font-bold">Hubungi Kami</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tim CS siap bantu</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">Tim CS siap bantu</span>
             </div>
           </SheetTitle>
           <SheetDescription className="sr-only">Hubungi customer service SayurLogi</SheetDescription>
@@ -114,7 +114,7 @@ export function ContactSheet({ open, onOpenChange, content }: ContactSheetProps)
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{info.label}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{info.label}</p>
                     <p className={cn("text-sm font-semibold break-words", isInteractive ? "text-foreground group-hover:text-primary" : "text-foreground")}>
                       {info.value}
                     </p>
@@ -141,7 +141,7 @@ export function ContactSheet({ open, onOpenChange, content }: ContactSheetProps)
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3" noValidate>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Kirim Pesan</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kirim Pesan</p>
               <FormField label="Nama Lengkap" required error={errors.name}>
                 <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} placeholder="Budi Santoso" required className="h-10" disabled={status === "loading"} />
               </FormField>
@@ -158,7 +158,7 @@ export function ContactSheet({ open, onOpenChange, content }: ContactSheetProps)
               </FormField>
               <FormField label="Pesan" required error={errors.message}>
                 <Textarea value={form.message} onChange={(e) => handleChange("message", e.target.value)} placeholder="Tulis pesan..." rows={3} required className="resize-none" disabled={status === "loading"} maxLength={2000} />
-                <div className="mt-1 text-right text-[10px] text-muted-foreground">{form.message.length}/2000</div>
+                <div className="mt-1 text-right text-xs text-muted-foreground">{form.message.length}/2000</div>
               </FormField>
               <Button type="submit" disabled={status === "loading"} className="w-full h-11 rounded-xl text-sm font-bold shadow-md">
                 {status === "loading" ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Mengirim...</>) : (<><Send className="mr-2 h-4 w-4" />Kirim Pesan</>)}

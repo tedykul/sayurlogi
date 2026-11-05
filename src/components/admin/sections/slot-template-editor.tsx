@@ -130,15 +130,15 @@ export function SlotTemplateEditor() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Template Slot Waktu
                 {isCustom ? (
-                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px]">Custom</Badge>
+                  <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs">Custom</Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">Default</Badge>
+                  <Badge variant="secondary" className="text-xs">Default</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">Atur jam pengiriman custom</p>
             </div>
           </div>
-          <Button onClick={handleResetDefault} size="sm" variant="ghost" className="h-7 text-[10px]">
+          <Button onClick={handleResetDefault} size="sm" variant="ghost" className="h-7 text-xs">
             <RotateCcw className="h-3 w-3 mr-1" /> Reset Default
           </Button>
         </div>
@@ -179,7 +179,7 @@ export function SlotTemplateEditor() {
                       max={24}
                     />
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0 w-20">
+                  <span className="text-xs text-muted-foreground shrink-0 w-20">
                     {formatHour(tmpl.startHour)}-{formatHour(tmpl.endHour)}
                   </span>
                   <Button
@@ -206,7 +206,7 @@ export function SlotTemplateEditor() {
             </div>
 
             {/* Info */}
-            <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
               <p><strong className="text-foreground">Cara kerja:</strong></p>
               <p>• Template ini dipakai untuk generate slot 7 hari ke depan</p>
               <p>• Customer pilih slot saat checkout (kalau scheduling di-enable)</p>

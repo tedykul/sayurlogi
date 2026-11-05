@@ -94,7 +94,7 @@ export function HeaderEditor() {
       {/* Preview card */}
       <AdminCard className="mb-4 overflow-hidden p-0">
         <div className="border-b border-border bg-secondary/40 px-3 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Preview Top Bar
           </p>
         </div>
@@ -130,7 +130,7 @@ export function HeaderEditor() {
                   )}
                 </span>
                 {content?.topBarBadge && (
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     {content.topBarBadge}
                   </span>
                 )}

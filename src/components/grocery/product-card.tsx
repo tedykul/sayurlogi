@@ -55,7 +55,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
       >
         {/* Discount badge — single, minimal */}
         {product.onSale && discount > 0 && (
-          <span className="absolute left-2 top-2 z-10 rounded-md bg-stone-900/90 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-sm">
+          <span className="absolute left-2 top-2 z-10 rounded-md bg-stone-900/90 px-1.5 py-0.5 text-xs font-bold text-white shadow-sm backdrop-blur-sm">
             -{discount}%
           </span>
         )}
@@ -107,7 +107,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
 
         {/* Rating — ultra compact, single line */}
         {rating > 0 && (
-          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-0.5 text-xs text-muted-foreground">
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
             <span className="font-semibold text-foreground">{rating.toFixed(1)}</span>
             <span className="opacity-70">({product.reviewCount ?? 0})</span>
@@ -118,13 +118,13 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
         <div className="mt-1 flex items-end justify-between gap-1.5">
           <div className="flex min-w-0 flex-col">
             {product.oldPrice && (
-              <span className="text-[10px] text-muted-foreground/50 line-through leading-none">
+              <span className="text-xs text-muted-foreground/50 line-through leading-none">
                 {formatIDR(product.oldPrice)}
               </span>
             )}
             <div className="flex items-baseline gap-0.5">
               <span className="text-base font-extrabold text-foreground tracking-tight leading-none">{formatIDR(product.price)}</span>
-              <span className="text-[10px] font-medium text-muted-foreground">/{product.unit}</span>
+              <span className="text-xs font-medium text-muted-foreground">/{product.unit}</span>
             </div>
           </div>
 

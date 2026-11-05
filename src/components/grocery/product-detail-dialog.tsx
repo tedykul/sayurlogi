@@ -218,14 +218,14 @@ function ProductDetailContent({
           </div>
           {discount > 0 && (
             <div className="absolute left-3 top-5">
-              <Badge className="bg-orange-500 text-white text-[10px] font-bold">
+              <Badge className="bg-orange-500 text-white text-xs font-bold">
                 -{discount}%
               </Badge>
             </div>
           )}
           {product.organic && (
             <div className={cn("absolute", discount > 0 ? "left-3 top-11" : "left-3 top-5")}>
-              <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
+              <Badge className="bg-primary text-primary-foreground text-xs font-bold">
                 <Leaf className="h-2.5 w-2.5 mr-0.5" /> Organik
               </Badge>
             </div>
@@ -334,7 +334,7 @@ function ProductDetailContent({
                       disabled={v.stock <= 0}
                     >
                       {v.name}
-                      <span className="block text-[10px] font-normal text-muted-foreground">
+                      <span className="block text-xs font-normal text-muted-foreground">
                         {v.stock <= 0 ? "Habis" : formatIDR(v.price)}
                       </span>
                     </button>
@@ -527,7 +527,7 @@ function InfoRow({
     )}>
       <span className="text-primary mt-0.5">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
         <p className="text-xs font-medium text-foreground break-words">{value}</p>
       </div>
     </div>
@@ -538,7 +538,7 @@ function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1 text-center">
       <span className="text-primary">{icon}</span>
-      <span className="text-[10px] font-semibold text-foreground/70 leading-tight">{label}</span>
+      <span className="text-xs font-semibold text-foreground/70 leading-tight">{label}</span>
     </div>
   );
 }

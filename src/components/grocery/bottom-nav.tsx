@@ -204,14 +204,14 @@ export function BottomNav({ onOpenCart, onOpenWishlist }: BottomNavProps) {
                         </div>
                         {/* Cart badge */}
                         {item.badge !== undefined && item.badge > 0 && (
-                          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background">
+                          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-destructive-foreground ring-2 ring-background">
                             {item.badge > 99 ? "99+" : item.badge}
                           </span>
                         )}
                       </div>
                       <span
                         className={cn(
-                          "text-[10px] font-medium transition-colors",
+                          "text-xs font-medium transition-colors",
                           isActive ? "text-primary font-semibold" : "text-muted-foreground"
                         )}
                       >
@@ -249,7 +249,7 @@ export function BottomNav({ onOpenCart, onOpenWishlist }: BottomNavProps) {
                     </div>
                     <span
                       className={cn(
-                        "text-[10px] font-medium transition-colors",
+                        "text-xs font-medium transition-colors",
                         isActive ? "text-primary font-semibold" : "text-muted-foreground"
                       )}
                     >

@@ -106,7 +106,7 @@ export function Header({ searchQuery, onSearchChange, brandName = "SayurLogi", o
             {wishlistCount > 0 && (
               <Badge
                 variant="secondary"
-                className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold ring-2 ring-background"
+                className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-white text-xs font-bold ring-2 ring-background"
               >
                 {wishlistCount}
               </Badge>

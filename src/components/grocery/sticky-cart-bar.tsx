@@ -51,7 +51,7 @@ export function StickyCartBar() {
               aria-label="Buka keranjang"
             >
               <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground ring-2 ring-background">
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-destructive-foreground ring-2 ring-background">
                 {totalItems}
               </span>
             </button>
@@ -62,7 +62,7 @@ export function StickyCartBar() {
               className="flex flex-1 flex-col items-start justify-center min-w-0"
               aria-label={`${totalItems} item, total ${formatIDR(totalPrice)}`}
             >
-              <span className="text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 {totalItems} item
               </span>
               <span className="text-base font-extrabold text-foreground tabular-nums leading-tight">

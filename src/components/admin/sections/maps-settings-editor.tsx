@@ -104,9 +104,9 @@ export function MapsSettingsEditor() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Google Maps (Gojek Shipping)
                 {settings?.configured ? (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]">Aktif</Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">Nonaktif</Badge>
+                  <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">Hitung ongkir Gojek berdasarkan jarak</p>
@@ -136,12 +136,12 @@ export function MapsSettingsEditor() {
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
                 >
                   {showApiKey ? "Sembunyikan" : "Tampilkan"}
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Dari Google Cloud Console → APIs &amp; Services → Credentials. Wajib enable Billing.
               </p>
             </div>
@@ -173,7 +173,7 @@ export function MapsSettingsEditor() {
                 />
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Cari di Google Maps → klik kanan alamat toko → copy koordinat.
             </p>
 
@@ -204,7 +204,7 @@ export function MapsSettingsEditor() {
                 />
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Ongkir = Base Fare + (jarak KM × Tarif per KM). Contoh: 5 km = {formatIDR((form.baseFare || 8000) + 5 * (form.perKmRate || 2000))}
             </p>
 
@@ -215,7 +215,7 @@ export function MapsSettingsEditor() {
             </Button>
 
             {/* Info */}
-            <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
               <p><strong className="text-foreground">Cara setup:</strong></p>
               <p>1. Daftar Google Cloud → enable Maps JavaScript API + Geocoding API + Distance Matrix API</p>
               <p>2. Enable Billing (gratis $300 credit + $200/bulan untuk Maps)</p>

@@ -130,7 +130,7 @@ export function OrderTrackingDialog({ open, onOpenChange, initialTrackingId }: O
               {error}
             </p>
           )}
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             💡 Tracking ID ada di email/konfirmasi pesanan kamu (format: SBXXXX, contoh: SB3X9K)
           </p>
         </div>
@@ -148,7 +148,7 @@ export function OrderTrackingDialog({ open, onOpenChange, initialTrackingId }: O
             {/* Tracking ID + status badge */}
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-[10px] font-medium uppercase text-muted-foreground">Tracking ID</p>
+                <p className="text-xs font-medium uppercase text-muted-foreground">Tracking ID</p>
                 <div className="flex items-center gap-2">
                   <code className="text-lg font-mono font-bold text-primary">{order.trackingId}</code>
                   <button
@@ -201,7 +201,7 @@ export function OrderTrackingDialog({ open, onOpenChange, initialTrackingId }: O
                           {ORDER_STATUS_LABELS[status]}
                         </p>
                         {isCurrent && order.statusHistory[i] && (
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {new Date(order.statusHistory[i].timestamp).toLocaleString("id-ID", {
                               day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
                             })}

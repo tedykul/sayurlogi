@@ -189,19 +189,19 @@ export function AuditLogViewer() {
         <div className="mb-4 grid grid-cols-3 gap-2">
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums">{total}</p>
-            <p className="text-[10px] text-muted-foreground">Total Entries</p>
+            <p className="text-xs text-muted-foreground">Total Entries</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums text-emerald-600">
               {entries.filter((e) => e.success).length}
             </p>
-            <p className="text-[10px] text-muted-foreground">Sukses</p>
+            <p className="text-xs text-muted-foreground">Sukses</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums text-rose-600">
               {entries.filter((e) => !e.success).length}
             </p>
-            <p className="text-[10px] text-muted-foreground">Gagal</p>
+            <p className="text-xs text-muted-foreground">Gagal</p>
           </div>
         </div>
       )}
@@ -259,20 +259,20 @@ export function AuditLogViewer() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge className={`text-[10px] font-medium ${meta.color}`} variant="secondary">
+                      <Badge className={`text-xs font-medium ${meta.color}`} variant="secondary">
                         {meta.label}
                       </Badge>
                       <code className="text-xs font-mono text-foreground bg-secondary px-1.5 py-0.5 rounded">
                         {entry.target}
                       </code>
                       <span
-                        className="text-[10px] text-muted-foreground ml-auto"
+                        className="text-xs text-muted-foreground ml-auto"
                         title={formatFullTime(entry.createdAt)}
                       >
                         {formatTime(entry.createdAt)}
                       </span>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                       {entry.ip && (
                         <span className="flex items-center gap-0.5">
                           🌐 {entry.ip}

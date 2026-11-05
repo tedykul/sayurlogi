@@ -154,7 +154,7 @@ export function CategoryEditor() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold">{item.name}</h3>
-                        <Badge variant={item.published ? "default" : "secondary"} className="text-[10px]">
+                        <Badge variant={item.published ? "default" : "secondary"} className="text-xs">
                           {item.published ? "Live" : "Hidden"}
                         </Badge>
                       </div>

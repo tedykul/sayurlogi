@@ -58,7 +58,7 @@ export function TrustBadges({ variant = "compact", className }: TrustBadgesProps
             <b.icon className="h-4 w-4 shrink-0 text-primary mt-0.5" />
             <div className="min-w-0">
               <p className="text-xs font-semibold leading-tight">{b.title}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{b.desc}</p>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">{b.desc}</p>
             </div>
           </div>
         ))}
@@ -76,18 +76,18 @@ export function TrustBadges({ variant = "compact", className }: TrustBadgesProps
             className="flex flex-col items-center gap-1 rounded-lg border border-border/40 bg-secondary/20 p-2 text-center"
           >
             <b.icon className="h-4 w-4 text-primary" />
-            <span className="text-[10px] font-semibold leading-tight">{b.title}</span>
+            <span className="text-xs font-semibold leading-tight">{b.title}</span>
           </div>
         ))}
       </div>
 
       {/* Payment methods — single row, no wrap, always aligned */}
       <div className="flex items-center justify-center gap-1.5 pt-1">
-        <span className="text-[10px] text-muted-foreground whitespace-nowrap mr-0.5">Metode pembayaran:</span>
+        <span className="text-xs text-muted-foreground whitespace-nowrap mr-0.5">Metode pembayaran:</span>
         {PAYMENT_METHODS.map((m) => (
           <span
             key={m.label}
-            className="inline-flex items-center gap-0.5 rounded-md border border-border/40 bg-background px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap"
+            className="inline-flex items-center gap-0.5 rounded-md border border-border/40 bg-background px-1.5 py-0.5 text-xs font-medium whitespace-nowrap"
             title={m.label}
           >
             <span aria-hidden="true">{m.emoji}</span>

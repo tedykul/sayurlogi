@@ -131,12 +131,12 @@ export function BiteshipCourierPicker({ items, onShippingChange }: BiteshipCouri
             </Button>
           </div>
 
-          {error && <p className="text-[10px] text-destructive">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           {/* Courier rates list */}
           {rates.length > 0 && (
             <div className="space-y-1.5 max-h-48 overflow-y-auto scrollbar-grocery pr-1">
-              <p className="text-[10px] font-medium text-muted-foreground sticky top-0 bg-card py-0.5">
+              <p className="text-xs font-medium text-muted-foreground sticky top-0 bg-card py-0.5">
                 Pilih Kurir ({rates.length} opsi):
               </p>
               {rates.map((rate, i) => (

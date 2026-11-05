@@ -58,7 +58,7 @@ export function AdminField({
         {label} {required && <span className="text-destructive">*</span>}
       </Label>
       {children}
-      {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

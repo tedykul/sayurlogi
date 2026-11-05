@@ -324,7 +324,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                 <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px]">1</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">1</span>
                     Data Penerima
                   </h3>
                   <div className="grid gap-2.5">
@@ -359,7 +359,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                           pattern="[0-9]*"
                         />
                         {phoneWarning && (
-                          <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                          <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                             <AlertCircle className="h-3 w-3 shrink-0" />
                             {phoneWarning}
                           </p>
@@ -382,7 +382,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                           className={cn("h-10", emailWarning && "border-amber-500/50 ring-1 ring-amber-500/20")}
                         />
                         {emailWarning && (
-                          <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                          <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                             <AlertCircle className="h-3 w-3 shrink-0" />
                             {emailWarning}
                           </p>
@@ -424,7 +424,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                 <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-cyan-500" />
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-white text-[10px]">2</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-white text-xs">2</span>
                     Metode Pengiriman
                   </h3>
                   <RadioGroup
@@ -487,13 +487,13 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                             </SelectContent>
                           </Select>
                           {selectedZone && selectedZone.freeShippingMin > 0 && totalPrice < selectedZone.freeShippingMin && (
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               Belanja {formatIDR(selectedZone.freeShippingMin - totalPrice)} lagi untuk gratis ongkir!
                             </p>
                           )}
                         </div>
                       ) : (
-                        <p className="text-[10px] text-muted-foreground">Tidak ada zona pengiriman aktif. Hubungi admin.</p>
+                        <p className="text-xs text-muted-foreground">Tidak ada zona pengiriman aktif. Hubungi admin.</p>
                       )}
                     </div>
                   )}
@@ -548,7 +548,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                 <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-amber-500" />
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-[10px]">3</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-xs">3</span>
                     Metode Pembayaran
                   </h3>
                   <RadioGroup
@@ -587,7 +587,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                 <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-card via-card to-muted p-4 ring-1 ring-border shadow-[0_2px_4px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.18)]">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-violet-500" />
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white text-[10px]">4</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white text-xs">4</span>
                     Kupon Diskon
                   </h3>
                   {couponApplied && couponCode ? (
@@ -596,7 +596,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                         <Ticket className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-xs font-bold truncate">{couponCode}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {couponFreeShipping
                               ? "Gratis ongkir"
                               : `Hemat ${formatIDR(couponDiscount)}`}
@@ -645,7 +645,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                       </Button>
                     </div>
                   )}
-                  <p className="mt-2 text-[10px] text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Isi email/telepon dulu sebelum validasi kupon (anti penyalahgunaan).
                   </p>
                 </section>
@@ -762,7 +762,7 @@ function RadioCard({
         <span className={accentText}>{icon}</span>
         <span className={`font-semibold ${compact ? "text-xs" : "text-sm"}`}>{title}</span>
       </div>
-      <span className="text-[10px] text-muted-foreground">{desc}</span>
+      <span className="text-xs text-muted-foreground">{desc}</span>
     </Label>
   );
 }
@@ -832,7 +832,7 @@ function SuccessView({
         {/* Tracking ID */}
         {result.trackingId && (
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-            <p className="text-[10px] font-medium uppercase text-muted-foreground">
+            <p className="text-xs font-medium uppercase text-muted-foreground">
               Tracking ID
             </p>
             <div className="flex items-center justify-between gap-2 mt-1">
@@ -849,7 +849,7 @@ function SuccessView({
                 Salin
               </button>
             </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Simpan ID ini untuk lacak pesanan kamu
             </p>
           </div>
@@ -876,7 +876,7 @@ function SuccessView({
             {payment.method === "transfer" && !paid && (
               <div className="space-y-2">
                 <div className="rounded-lg bg-background p-2.5">
-                  <p className="text-[10px] text-muted-foreground">{payment.vaBank} Virtual Account</p>
+                  <p className="text-xs text-muted-foreground">{payment.vaBank} Virtual Account</p>
                   <div className="flex items-center justify-between mt-0.5">
                     <code className="text-sm font-mono font-bold">{payment.vaNumber}</code>
                     <button
@@ -890,7 +890,7 @@ function SuccessView({
                     </button>
                   </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Transfer ke VA di atas. Klik "Saya Sudah Bayar" setelah transfer.
                 </p>
               </div>

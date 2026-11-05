@@ -50,7 +50,7 @@ export function PromoCarousel({ products, onOpenDetail }: PromoCarouselProps) {
             <span className="text-xs text-muted-foreground">{promos.length} produk</span>
           </div>
         </div>
-        <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-600">
+        <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-600">
           ⏰ Berakhir cepat
         </span>
       </div>
@@ -110,7 +110,7 @@ export function PromoCarousel({ products, onOpenDetail }: PromoCarouselProps) {
                     )}
                     <div className="flex items-baseline gap-0.5">
                       <span className="text-sm font-extrabold text-orange-600 leading-none">{formatIDR(product.price)}</span>
-                      <span className="text-[10px] text-muted-foreground">/{product.unit}</span>
+                      <span className="text-xs text-muted-foreground">/{product.unit}</span>
                     </div>
                   </div>
                   <span

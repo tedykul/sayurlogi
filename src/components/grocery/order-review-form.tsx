@@ -152,7 +152,7 @@ function ReviewForm({
           <Star className="h-4 w-4 text-amber-500" />
           Beri Review Pesanan
         </h4>
-        <p className="text-[10px] text-muted-foreground mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           Bagikan pengalaman belanja Anda. Review akan tampil setelah dimoderasi admin.
         </p>
       </div>
@@ -294,7 +294,7 @@ function ExistingReviewView({ review }: { review: Review }) {
           <Star className="h-4 w-4 text-amber-500" />
           Review Anda
         </h4>
-        <span className={`inline-flex items-center gap-1 rounded-full ${statusMeta.bg} ${statusMeta.color} px-2 py-0.5 text-[10px] font-medium`}>
+        <span className={`inline-flex items-center gap-1 rounded-full ${statusMeta.bg} ${statusMeta.color} px-2 py-0.5 text-xs font-medium`}>
           <Icon className="h-3 w-3" />
           {statusMeta.label}
         </span>
@@ -314,7 +314,7 @@ function ExistingReviewView({ review }: { review: Review }) {
       {review.comment && <p className="text-xs text-muted-foreground">{review.comment}</p>}
       {review.adminReply && (
         <div className="rounded-lg bg-secondary/50 p-2 text-xs">
-          <p className="font-semibold text-[10px] text-muted-foreground">Balasan Admin:</p>
+          <p className="font-semibold text-xs text-muted-foreground">Balasan Admin:</p>
           <p className="mt-0.5">{review.adminReply}</p>
         </div>
       )}
