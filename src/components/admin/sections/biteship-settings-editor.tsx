@@ -77,9 +77,9 @@ export function BiteshipSettingsEditor() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Biteship (Multi-Kurir)
                 {settings?.configured ? (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]">Aktif</Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">Nonaktif</Badge>
+                  <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">GoSend, GrabExpress, JNE, J&T, SiCepat, dll</p>
@@ -109,12 +109,12 @@ export function BiteshipSettingsEditor() {
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
                 >
                   {showApiKey ? "Sembunyikan" : "Tampilkan"}
                 </button>
               </div>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Daftar di{" "}
                 <a
                   href="https://biteship.com/"
@@ -138,7 +138,7 @@ export function BiteshipSettingsEditor() {
                 className="h-9 text-xs font-mono"
                 placeholder="https://api.biteship.com"
               />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Default: https://api.biteship.com (production). Sandbox: https://api.biteship.com (sama).
               </p>
             </div>
@@ -150,7 +150,7 @@ export function BiteshipSettingsEditor() {
             </Button>
 
             {/* Info */}
-            <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
               <p><strong className="text-foreground">Cara setup Biteship:</strong></p>
               <p>1. Daftar merchant di <a href="https://biteship.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">biteship.com</a> (KTP + rekening)</p>
               <p>2. Tunggu approval (1-3 hari kerja)</p>

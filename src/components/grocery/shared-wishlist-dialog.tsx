@@ -211,7 +211,7 @@ export function SharedWishlistDialog() {
                       <span className="text-xs text-muted-foreground">
                         {formatIDR(item.price)} / {item.unit}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {item.category}
                       </span>
                     </div>
@@ -237,7 +237,7 @@ export function SharedWishlistDialog() {
                 <Heart className="h-4 w-4 mr-2" />
                 Simpan ke Wishlist Saya
               </Button>
-              <p className="pt-1 text-center text-[10px] text-muted-foreground">
+              <p className="pt-1 text-center text-xs text-muted-foreground">
                 <CheckCircle2 className="inline h-3 w-3 mr-0.5" />
                 Stok akan diperiksa saat checkout
               </p>

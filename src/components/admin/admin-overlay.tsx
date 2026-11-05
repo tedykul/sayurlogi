@@ -215,7 +215,7 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                 </div>
                 <div>
                   <h1 className="text-sm font-bold leading-tight">SayurLogi Admin</h1>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-xs text-muted-foreground leading-tight">
                     Content Management
                   </p>
                 </div>
@@ -224,7 +224,7 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                 {/* Current user display (name + role badge) */}
                 {user && (
                   <div className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">
                       {(user.name || user.email).charAt(0).toUpperCase()}
                     </div>
                     <div className="leading-tight">
@@ -424,7 +424,7 @@ function LoginGate({
                 autoComplete="email"
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Kosongkan email untuk login pakai password admin lama.
             </p>
           </div>
@@ -474,7 +474,7 @@ function LoginGate({
           </Button>
         </form>
 
-        <p className="mt-4 text-center text-[10px] text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           💡 Hint: Tekan <kbd className="rounded bg-secondary px-1">Ctrl+Shift+A</kbd> untuk buka admin
         </p>
       </motion.div>

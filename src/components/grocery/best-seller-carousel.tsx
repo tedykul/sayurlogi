@@ -52,7 +52,7 @@ export function BestSellerCarousel({ products, onOpenDetail }: BestSellerCarouse
             <span className="text-xs text-muted-foreground">{bestSellers.length} produk</span>
           </div>
         </div>
-        <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[10px] font-bold text-orange-600">
+        <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-xs font-bold text-orange-600">
           🔥 Laris
         </span>
       </div>
@@ -103,7 +103,7 @@ export function BestSellerCarousel({ products, onOpenDetail }: BestSellerCarouse
                   </div>
                 )}
                 {/* Urgency: "Terjual X" — drives conversion */}
-                <span className="text-[10px] font-medium text-orange-600/80">
+                <span className="text-xs font-medium text-orange-600/80">
                   Terjual {Math.floor(product.stock * 3.7) + 120}
                 </span>
                 <div className="mt-0.5 flex items-end justify-between gap-1.5">
@@ -115,7 +115,7 @@ export function BestSellerCarousel({ products, onOpenDetail }: BestSellerCarouse
                     )}
                     <div className="flex items-baseline gap-0.5">
                       <span className="text-sm font-extrabold text-primary leading-none">{formatIDR(product.price)}</span>
-                      <span className="text-[10px] text-muted-foreground">/{product.unit}</span>
+                      <span className="text-xs text-muted-foreground">/{product.unit}</span>
                     </div>
                   </div>
                   <span

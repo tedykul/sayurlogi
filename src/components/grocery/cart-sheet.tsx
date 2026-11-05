@@ -39,7 +39,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-base font-bold">Keranjang Belanja</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 {totalItems > 0 ? `${totalItems} item` : "Belum ada item"}
               </span>
             </div>
@@ -90,7 +90,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                     </motion.div>
                   </div>
                 </div>
-                <p className="mt-1 text-right text-[10px] font-semibold text-muted-foreground tabular-nums">
+                <p className="mt-1 text-right text-xs font-semibold text-muted-foreground tabular-nums">
                   {Math.round(progressPct)}%
                 </p>
               </>
@@ -185,7 +185,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                           </div>
                           <div className="flex flex-col items-end">
                             {hasDiscount && item.product.oldPrice && (
-                              <span className="text-[10px] text-muted-foreground line-through leading-none">
+                              <span className="text-xs text-muted-foreground line-through leading-none">
                                 {formatIDR(item.product.oldPrice * item.quantity)}
                               </span>
                             )}
@@ -234,7 +234,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                 <span className="text-base font-bold">Total</span>
                 <div className="flex flex-col items-end">
                   <span className="text-xl font-extrabold text-primary tabular-nums">{formatIDR(grandTotal)}</span>
-                  <span className="text-[10px] text-muted-foreground">sudah termasuk biaya</span>
+                  <span className="text-xs text-muted-foreground">sudah termasuk biaya</span>
                 </div>
               </div>
             </div>
@@ -254,7 +254,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
               </Button>
             </div>
             {/* Mini trust indicators */}
-            <div className="flex items-center justify-center gap-3 pt-1.5 text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-center gap-3 pt-1.5 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Truck className="h-3 w-3 text-primary" /> Antar 2 jam
               </span>

@@ -118,7 +118,7 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
               </div>
               <div className="flex-1">
                 <span className="text-base font-bold block leading-tight">{brandName}</span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{tagline}</span>
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">{tagline}</span>
               </div>
               {/* Trust badges inline right */}
               <div className="flex gap-1">

@@ -134,7 +134,7 @@ export function OrderHistoryDialog({ open, onOpenChange, onTrackOrder }: OrderHi
           </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-muted-foreground">Email</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Email</Label>
               <Input
                 type="email"
                 value={email}
@@ -145,7 +145,7 @@ export function OrderHistoryDialog({ open, onOpenChange, onTrackOrder }: OrderHi
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] font-medium text-muted-foreground">Telepon</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Telepon</Label>
               <Input
                 type="tel"
                 value={phone}
@@ -197,11 +197,11 @@ export function OrderHistoryDialog({ open, onOpenChange, onTrackOrder }: OrderHi
                       <code className="text-sm font-mono font-bold text-primary">
                         {order.trackingId}
                       </code>
-                      <Badge className={cn("text-[10px]", ORDER_STATUS_COLORS[order.status])}>
+                      <Badge className={cn("text-xs", ORDER_STATUS_COLORS[order.status])}>
                         {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
                       </Badge>
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                       <span>{order.items.length} item</span>
                       <span>· {formatIDR(order.total)}</span>
                       <span>· {new Date(order.createdAt).toLocaleDateString("id-ID", {

@@ -123,7 +123,7 @@ export function ReviewEditor() {
               }`}
             >
               {tab.label}
-              <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-[10px]">
+              <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-xs">
                 {count}
               </span>
               {active && (
@@ -215,8 +215,8 @@ function ReviewRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold">{review.customerName}</span>
-            <code className="text-[10px] font-mono text-muted-foreground">#{review.trackingId}</code>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusColor}`}>
+            <code className="text-xs font-mono text-muted-foreground">#{review.trackingId}</code>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${statusColor}`}>
               {statusLabel}
             </span>
           </div>
@@ -231,22 +231,22 @@ function ReviewRow({
                 }`}
               />
             ))}
-            <span className="ml-1 text-[10px] text-muted-foreground">{review.rating}.0</span>
+            <span className="ml-1 text-xs text-muted-foreground">{review.rating}.0</span>
           </div>
           {review.title && <p className="mt-1.5 text-xs font-semibold">{review.title}</p>}
           {review.comment && <p className="mt-0.5 text-xs text-muted-foreground">{review.comment}</p>}
-          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
             {review.freshnessRating && <span>🥬 Kesegaran: {review.freshnessRating}/5</span>}
             {review.deliveryRating && <span>🚚 Pengiriman: {review.deliveryRating}/5</span>}
             {review.packingRating && <span>📦 Packing: {review.packingRating}/5</span>}
           </div>
           {review.adminReply && (
             <div className="mt-2 rounded-lg bg-secondary/50 p-2 text-xs">
-              <p className="font-semibold text-[10px] text-muted-foreground">Balasan Admin:</p>
+              <p className="font-semibold text-xs text-muted-foreground">Balasan Admin:</p>
               <p className="mt-0.5">{review.adminReply}</p>
             </div>
           )}
-          <p className="mt-1.5 text-[10px] text-muted-foreground">{formatDate(review.createdAt)}</p>
+          <p className="mt-1.5 text-xs text-muted-foreground">{formatDate(review.createdAt)}</p>
         </div>
         <div className="flex flex-col gap-1 shrink-0">
           {review.status !== "published" && (

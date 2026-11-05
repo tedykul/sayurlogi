@@ -454,7 +454,7 @@ export function ProductEditor() {
                 {syncStatus.source === "erpnext" ? "Live" : "Mock"}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {syncStatus.syncedProducts} / {syncStatus.totalProducts} produk tersinkron
               {syncStatus.lastSyncAt &&
                 ` · ${new Date(syncStatus.lastSyncAt).toLocaleString("id-ID", {
@@ -738,7 +738,7 @@ export function ProductEditor() {
                             </Badge>
                           )}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                           <code className="font-mono">{p.itemCode}</code>
                           <span>· {p.category}</span>
                           <span>· {formatIDR(p.price)}/{p.unit}</span>
@@ -856,7 +856,7 @@ export function ProductEditor() {
                                 </div>
                               )}
                               {p.erpSyncedAt && (
-                                <p className="text-[10px] text-muted-foreground italic">
+                                <p className="text-xs text-muted-foreground italic">
                                   ERP synced: {new Date(p.erpSyncedAt).toLocaleString("id-ID")}
                                 </p>
                               )}
@@ -1330,7 +1330,7 @@ function ProductForm({ initial, isNew, onSave, onCancel }: ProductFormProps) {
             </Button>
           </div>
           {form.variants.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground italic">
+            <p className="text-xs text-muted-foreground italic">
               Belum ada varian. Contoh: 250gr, 500gr, 1kg.
             </p>
           ) : (

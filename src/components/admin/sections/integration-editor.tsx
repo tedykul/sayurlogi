@@ -496,9 +496,9 @@ function MidtransSection() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Midtrans Payment Gateway
                 {form.enabled && form.serverKey ? (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]">Aktif</Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">Nonaktif</Badge>
+                  <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">VA, e-wallet, card, QRIS — real payment processing</p>
@@ -576,7 +576,7 @@ function MidtransSection() {
               Simpan Konfigurasi Midtrans
             </Button>
 
-            <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
               <p><strong className="text-foreground">Cara dapat keys:</strong> Daftar di dashboard.midtrans.com → Settings → Access Keys.</p>
               <p><strong className="text-foreground">Webhook:</strong> Set notification URL ke <code>https://domain-anda.com/api/payments/midtrans/webhook</code> di Midtrans dashboard.</p>
               <p><strong className="text-foreground">Saat nonaktif:</strong> Checkout otomatis pakai mock payment (COD/VA mock).</p>
@@ -718,9 +718,9 @@ function WaSection() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Notifikasi WhatsApp
                 {form.enabled && form.provider !== "mock" && form.apiKey ? (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]">Aktif</Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">Nonaktif</Badge>
+                  <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">Kirim WA otomatis saat status order berubah</p>
@@ -827,12 +827,12 @@ function WaSection() {
                   Test
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Simpan config dulu, lalu kirim test ke nomor Anda untuk verifikasi.
               </p>
             </div>
 
-            <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
               <p><strong className="text-foreground">Fonnte:</strong> Daftar di fonnte.com. Token dari menu API. Biaya ~Rp 500/1000 msg.</p>
               <p><strong className="text-foreground">Wablas:</strong> Daftar di console.wablas.com. Token dari menu API.</p>
               <p><strong className="text-foreground">Saat nonaktif:</strong> Tidak ada WA dikirim (hemat credit). Status order tetap update di dashboard.</p>

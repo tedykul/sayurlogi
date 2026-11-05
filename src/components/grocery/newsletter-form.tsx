@@ -114,7 +114,7 @@ export function NewsletterForm() {
           {error}
         </p>
       )}
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Dapatkan info promo & tips sehat. Bisa unsubscribe kapan saja.
       </p>
     </form>

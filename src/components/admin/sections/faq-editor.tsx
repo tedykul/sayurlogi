@@ -169,7 +169,7 @@ export function FaqEditor() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="text-sm font-semibold leading-tight">{faq.question}</h3>
-                        <Badge variant={faq.published ? "default" : "secondary"} className="shrink-0 text-[10px]">
+                        <Badge variant={faq.published ? "default" : "secondary"} className="shrink-0 text-xs">
                           {faq.published ? "Live" : "Hidden"}
                         </Badge>
                       </div>

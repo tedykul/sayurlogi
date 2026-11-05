@@ -84,7 +84,7 @@ export function AdvancedFilter({ products, filter, onChange }: AdvancedFilterPro
           <SlidersHorizontal className="h-4 w-4" />
           Filter
           {hasActiveFilter && (
-            <Badge className="ml-1 h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+            <Badge className="ml-1 h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
               {activeCount}
             </Badge>
           )}
@@ -126,7 +126,7 @@ export function AdvancedFilter({ products, filter, onChange }: AdvancedFilterPro
               className="py-2"
               aria-label="Rentang harga"
             />
-            <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+            <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
               <span>{formatIDR(bounds.min)}</span>
               <span>{formatIDR(bounds.max)}</span>
             </div>

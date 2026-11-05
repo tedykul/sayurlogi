@@ -69,7 +69,7 @@ export function CheckoutSteps({ current }: CheckoutStepsProps) {
               </motion.div>
               <span
                 className={cn(
-                  "text-[10px] font-medium leading-tight text-center max-w-[80px]",
+                  "text-xs font-medium leading-tight text-center max-w-[80px]",
                   isCurrent ? "text-primary" : isFuture ? "text-muted-foreground" : "text-foreground"
                 )}
               >

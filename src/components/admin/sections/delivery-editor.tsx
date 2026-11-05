@@ -184,9 +184,9 @@ export function DeliveryEditor() {
                 <h3 className="text-sm font-semibold flex items-center gap-2">
                   Scheduling
                   {enabled ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px]">Aktif</Badge>
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
                   ) : (
-                    <Badge variant="secondary" className="text-[10px]">Nonaktif</Badge>
+                    <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
                   )}
                 </h3>
                 <p className="text-[11px] text-muted-foreground">Saat aktif, checkout menampilkan slot picker</p>
@@ -233,7 +233,7 @@ export function DeliveryEditor() {
                   <Badge
                     key={date}
                     variant="secondary"
-                    className="text-[10px] gap-1 pr-1"
+                    className="text-xs gap-1 pr-1"
                   >
                     {new Date(date + "T00:00:00").toLocaleDateString("id-ID", {
                       day: "numeric", month: "short", year: "numeric",
@@ -249,7 +249,7 @@ export function DeliveryEditor() {
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] text-muted-foreground">Belum ada tanggal diblokir</p>
+              <p className="text-xs text-muted-foreground">Belum ada tanggal diblokir</p>
             )}
           </div>
         </div>
@@ -306,7 +306,7 @@ export function DeliveryEditor() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold">{slot.label} · {slot.timeLabel}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {slot.currentOrders} / {slot.maxOrders || "∞"} terpesan
                           </p>
                         </div>
@@ -323,7 +323,7 @@ export function DeliveryEditor() {
                                 handleMaxOrdersChange(slot.id, v);
                               }
                             }}
-                            className="h-7 w-14 text-[10px] text-center"
+                            className="h-7 w-14 text-xs text-center"
                             min={0}
                             title="Max orders"
                           />
@@ -348,7 +348,7 @@ export function DeliveryEditor() {
         </div>
       </AdminCard>
 
-      <div className="rounded-lg bg-secondary/50 p-3 text-[10px] text-muted-foreground space-y-1">
+      <div className="rounded-lg bg-secondary/50 p-3 text-xs text-muted-foreground space-y-1">
         <p><strong className="text-foreground">Slot default:</strong> Pagi (09-12), Siang (12-15), Sore (15-18)</p>
         <p><strong className="text-foreground">Same-day cutoff:</strong> Pesanan sebelum jam 13:00 bisa pilih slot hari ini</p>
         <p><strong className="text-foreground">Generate otomatis:</strong> Slot dibuat untuk 7 hari ke depan saat customer buka checkout</p>

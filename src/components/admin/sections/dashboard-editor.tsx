@@ -313,7 +313,7 @@ export function DashboardEditor() {
                     stats.revenueLast7Days.reduce((s, d) => s + d.revenue, 0)
                   )}
                 </p>
-                <p className="text-[10px] text-muted-foreground">Total minggu ini</p>
+                <p className="text-xs text-muted-foreground">Total minggu ini</p>
               </div>
             </div>
             <div className="h-[220px] w-full">
@@ -592,7 +592,7 @@ export function DashboardEditor() {
                             #{order.trackingId}
                           </span>
                           <span
-                            className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                            className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
                             style={{ backgroundColor: statusMeta?.color }}
                           >
                             {statusMeta?.label || STATUS_LABELS[order.status] || order.status}
@@ -640,7 +640,7 @@ export function DashboardEditor() {
                         <p className="truncate text-xs font-medium text-foreground">
                           {p.name}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {p.itemCode} · {p.category}
                         </p>
                       </div>
@@ -656,7 +656,7 @@ export function DashboardEditor() {
                       >
                         {p.stock} {p.stock === 0 ? "habis" : "tersisa"}
                       </span>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {formatIDR(p.price)}
                       </p>
                     </div>
@@ -733,19 +733,19 @@ export function DashboardEditor() {
               <p className="text-2xl font-bold text-foreground">
                 {stats.erpSyncStatus.totalProducts}
               </p>
-              <p className="text-[10px] text-muted-foreground">Total Produk</p>
+              <p className="text-xs text-muted-foreground">Total Produk</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 text-center">
               <p className="text-2xl font-bold text-emerald-600">
                 {stats.erpSyncStatus.syncedProducts}
               </p>
-              <p className="text-[10px] text-muted-foreground">Tersinkron</p>
+              <p className="text-xs text-muted-foreground">Tersinkron</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 text-center">
               <p className="text-2xl font-bold text-amber-600">
                 {stats.erpSyncStatus.totalProducts - stats.erpSyncStatus.syncedProducts}
               </p>
-              <p className="text-[10px] text-muted-foreground">Manual Only</p>
+              <p className="text-xs text-muted-foreground">Manual Only</p>
             </div>
           </div>
           {stats.erpSyncStatus.lastSyncAt && (
@@ -837,7 +837,7 @@ export function DashboardEditor() {
                       </span>
                     </div>
                     <p className="mt-1 text-lg font-bold text-foreground">{c.stock}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {c.productCount} produk · {formatIDR(c.value)}
                     </p>
                   </div>
@@ -868,7 +868,7 @@ export function DashboardEditor() {
                     <span className="text-xs font-bold">{pm.count}</span>
                   </div>
                   <p className="text-xs font-medium text-foreground">{pm.label}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {formatIDR(pm.revenue)}
                   </p>
                 </div>
@@ -901,7 +901,7 @@ export function DashboardEditor() {
                     <p className={cn("text-lg font-bold", pct >= 100 ? "text-emerald-600" : "text-amber-600")}>
                       {pct}%
                     </p>
-                    <p className="text-[10px] text-muted-foreground">achievement 7 hari</p>
+                    <p className="text-xs text-muted-foreground">achievement 7 hari</p>
                   </>
                 );
               })()}
@@ -1123,7 +1123,7 @@ function KpiCard({
         </div>
         <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
         {trend && (
-          <div className="mt-1 flex items-center gap-1 text-[10px]">
+          <div className="mt-1 flex items-center gap-1 text-xs">
             {isPositiveTrend ? (
               <TrendingUp className="h-3 w-3 text-white/90" />
             ) : (
@@ -1136,7 +1136,7 @@ function KpiCard({
           </div>
         )}
         {subtitle && !trend && (
-          <p className="mt-1 flex items-center gap-1 text-[10px] text-white/70">
+          <p className="mt-1 flex items-center gap-1 text-xs text-white/70">
             {subtitleIcon}
             {subtitle}
           </p>

@@ -116,7 +116,7 @@ export function GojekShippingCalculator({ onShippingChange }: GojekShippingCalcu
         </Button>
       </div>
 
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       {fee !== null && distanceKm !== null && (
         <div className="rounded-lg bg-emerald-500/5 p-2.5 ring-1 ring-emerald-500/20 space-y-1">

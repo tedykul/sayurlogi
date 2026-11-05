@@ -84,7 +84,7 @@ export function DeliverySlotPicker({ selectedSlotId, onSelect }: DeliverySlotPic
         <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-grocery pr-1">
           {Object.entries(grouped).map(([dateLabel, dateSlots]) => (
             <div key={dateLabel}>
-              <p className="text-[10px] font-medium text-muted-foreground mb-1 sticky top-0 bg-card/80 backdrop-blur-sm py-0.5">
+              <p className="text-xs font-medium text-muted-foreground mb-1 sticky top-0 bg-card/80 backdrop-blur-sm py-0.5">
                 {dateLabel}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -131,7 +131,7 @@ export function DeliverySlotPicker({ selectedSlotId, onSelect }: DeliverySlotPic
       )}
 
       {selectedSlotId && (
-        <p className="text-[10px] text-primary flex items-center gap-1">
+        <p className="text-xs text-primary flex items-center gap-1">
           <Clock className="h-3 w-3" />
           Slot terpilih: {slots.find((s) => s.id === selectedSlotId)?.displayLabel}
         </p>

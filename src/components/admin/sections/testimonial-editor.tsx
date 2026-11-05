@@ -177,7 +177,7 @@ export function TestimonialEditor() {
                         <div className="flex items-center gap-1 shrink-0">
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                           <span className="text-xs font-semibold">{item.rating}</span>
-                          <Badge variant={item.published ? "default" : "secondary"} className="ml-1 text-[10px]">
+                          <Badge variant={item.published ? "default" : "secondary"} className="ml-1 text-xs">
                             {item.published ? "Live" : "Hidden"}
                           </Badge>
                         </div>

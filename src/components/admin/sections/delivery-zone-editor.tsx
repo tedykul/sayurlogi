@@ -109,7 +109,7 @@ export function DeliveryZoneEditor() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 Zona Pengiriman Internal
                 {zones.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px]">{zones.length} zona</Badge>
+                  <Badge variant="secondary" className="text-xs">{zones.length} zona</Badge>
                 )}
               </h3>
               <p className="text-[11px] text-muted-foreground">Area antar dengan ongkir flat rate</p>
@@ -127,7 +127,7 @@ export function DeliveryZoneEditor() {
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 space-y-2">
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-3 sm:col-span-1">
-                <Label className="text-[10px] text-muted-foreground">Nama Zona</Label>
+                <Label className="text-xs text-muted-foreground">Nama Zona</Label>
                 <Input
                   value={newZone.name}
                   onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
@@ -137,7 +137,7 @@ export function DeliveryZoneEditor() {
                 />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground">Ongkir (Rp)</Label>
+                <Label className="text-xs text-muted-foreground">Ongkir (Rp)</Label>
                 <Input
                   type="number"
                   value={newZone.fee}
@@ -147,7 +147,7 @@ export function DeliveryZoneEditor() {
                 />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground">Min Gratis (Rp)</Label>
+                <Label className="text-xs text-muted-foreground">Min Gratis (Rp)</Label>
                 <Input
                   type="number"
                   value={newZone.freeShippingMin}
@@ -173,7 +173,7 @@ export function DeliveryZoneEditor() {
           <div className="text-center py-6">
             <MapPin className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">Belum ada zona pengiriman</p>
-            <p className="text-[10px] text-muted-foreground/70 mt-1">Tambah zona untuk mengaktifkan ongkir berbasis area</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Tambah zona untuk mengaktifkan ongkir berbasis area</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -222,7 +222,7 @@ export function DeliveryZoneEditor() {
                           <span className="font-semibold">{zone.name}</span>
                           {!zone.active && <Badge variant="secondary" className="text-[9px]">Nonaktif</Badge>}
                         </div>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           Ongkir: {zone.fee === 0 ? "Gratis" : formatIDR(zone.fee)}
                           {zone.freeShippingMin > 0 ? ` · Gratis ≥ ${formatIDR(zone.freeShippingMin)}` : ""}
                         </span>
@@ -259,7 +259,7 @@ export function DeliveryZoneEditor() {
         )}
 
         {/* Info */}
-        <div className="rounded-lg bg-secondary/50 p-2.5 text-[10px] text-muted-foreground space-y-1">
+        <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
           <p><strong className="text-foreground">Zona Internal:</strong> Area yang dilayani kurir sendiri (flat rate per zona)</p>
           <p><strong className="text-foreground">Gojek:</strong> Customer pilih opsi Gojek di checkout → bayar ongkir ke kurir langsung</p>
           <p><strong className="text-foreground">Gratis ongkir:</strong> Set min belanja (freeShippingMin) → kalau subtotal ≥ min, ongkir = 0</p>

@@ -360,7 +360,7 @@ export function UserEditor() {
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Mail className="h-3 w-3" /> {u.email}
                         </span>
@@ -477,7 +477,7 @@ function StatCard({
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
       <p className={cn("text-lg font-bold tabular-nums", cls)}>{value}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -620,7 +620,7 @@ function UserModal({ mode, initial, isSelf, onClose, onSubmit }: UserModalProps)
             >
               <div>
                 <p className="text-xs font-medium">Aktif</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   User nonaktif tidak bisa login
                 </p>
               </div>
@@ -631,7 +631,7 @@ function UserModal({ mode, initial, isSelf, onClose, onSubmit }: UserModalProps)
               />
             </label>
             {isSelf && (
-              <p className="text-[10px] text-amber-600">
+              <p className="text-xs text-amber-600">
                 ⚠️ Tidak bisa menonaktifkan akun sendiri
               </p>
             )}

@@ -157,14 +157,14 @@ export function OrderEditor() {
         <div className="mb-4 grid grid-cols-4 gap-2">
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums">{total}</p>
-            <p className="text-[10px] text-muted-foreground">Total</p>
+            <p className="text-xs text-muted-foreground">Total</p>
           </div>
           {(["pending", "preparing", "out_for_delivery"] as OrderStatus[]).map((s) => (
             <div key={s} className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
               <p className="text-lg font-bold tabular-nums">
                 {orders.filter((o) => o.status === s).length}
               </p>
-              <p className="text-[10px] text-muted-foreground">{ORDER_STATUS_LABELS[s].split(" ")[0]}</p>
+              <p className="text-xs text-muted-foreground">{ORDER_STATUS_LABELS[s].split(" ")[0]}</p>
             </div>
           ))}
         </div>
@@ -259,14 +259,14 @@ export function OrderEditor() {
                         <code className="text-sm font-mono font-bold text-primary">
                           {order.trackingId}
                         </code>
-                        <Badge className={cn("text-[10px] font-medium", ORDER_STATUS_COLORS[order.status])}>
+                        <Badge className={cn("text-xs font-medium", ORDER_STATUS_COLORS[order.status])}>
                           {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
                         </Badge>
                         {/* Payment status badge (only show if not COD + payment exists) */}
                         {order.payment && order.payment.method !== "cod" && (
                           <Badge
                             className={cn(
-                              "text-[10px] font-medium",
+                              "text-xs font-medium",
                               order.payment.status === "paid"
                                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
                                 : order.payment.status === "pending_verification"
@@ -282,7 +282,7 @@ export function OrderEditor() {
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span>{order.customerName}</span>
                         <span>· {order.items.length} item</span>
                         <span>· {formatIDR(order.total)}</span>
@@ -389,7 +389,7 @@ export function OrderEditor() {
                                 <span>Total</span>
                                 <span className="text-primary">{formatIDR(order.total)}</span>
                               </div>
-                              <p className="text-[10px] text-muted-foreground pt-1">
+                              <p className="text-xs text-muted-foreground pt-1">
                                 💳 {order.paymentMethod.toUpperCase()}
                                 {order.erpSalesOrderName && ` · ERP: ${order.erpSalesOrderName}`}
                               </p>

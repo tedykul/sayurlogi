@@ -233,10 +233,10 @@ function CouponRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <code className="text-base font-mono font-bold">{coupon.code}</code>
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               {TYPE_LABELS[coupon.type]}
             </Badge>
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusColor}`}>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${statusColor}`}>
               {statusLabel}
             </span>
           </div>
@@ -247,7 +247,7 @@ function CouponRow({
             {coupon.minOrder > 0 && ` · min ${formatIDR(coupon.minOrder)}`}
             {coupon.scopeType !== "all" && ` · ${SCOPE_LABELS[coupon.scopeType]}: ${coupon.scopeValue}`}
           </p>
-          <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>
               Terpakai: <strong className="text-foreground">{coupon.usedCount}</strong>
               {coupon.maxUsage > 0 ? ` / ${coupon.maxUsage}` : " (∞)"}
