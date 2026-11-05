@@ -759,10 +759,12 @@ function RadioCard({
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <RadioGroupItem value={value} id={`r-${value}`} className="sr-only" />
-        <span className={accentText + " shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-background/50"}>{icon}</span>
+        <span className={accentText + " shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-background/60 ring-1 ring-border/30 [&>svg]:h-5 [&>svg]:w-5"}>
+          {icon}
+        </span>
         <span className={`font-semibold truncate ${compact ? "text-sm" : "text-base"}`}>{title}</span>
       </div>
-      <span className="text-xs text-muted-foreground break-words pl-9">{desc}</span>
+      <span className="text-xs text-muted-foreground break-words pl-[42px]">{desc}</span>
     </Label>
   );
 }
