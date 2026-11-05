@@ -57,7 +57,7 @@ const PROMO_FIELDS = [
 
 const CONTACT_FIELDS = [
   { key: "contactPhone", label: "Nomor Telepon", placeholder: "0800-1234-5678" },
-  { key: "contactEmail", label: "Email", placeholder: "halo@sayurbox.id" },
+  { key: "contactEmail", label: "Email", placeholder: "halo@sayurlogi.id" },
   { key: "contactAddress", label: "Alamat", placeholder: "Jl. Petani Sejahtera No. 88, Jakarta Selatan", multiline: true },
   { key: "contactHours", label: "Jam Operasional", placeholder: "Setiap hari, 08.00 - 21.00 WIB" },
 ] as const;
