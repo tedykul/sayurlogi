@@ -13,23 +13,33 @@ import { CustomerMenuButton } from "./customer-menu-button";
 // ============================================================
 // Header — sticky storefront header with top bar (desktop only).
 // ============================================================
-// Top bar fields are DB-driven via the `content` prop (edited in
-// admin > Header tab). All fields are optional with sensible
-// defaults — when `content` is undefined or a field is null,
-// the hardcoded default is shown (backward compatible).
+// Top bar is FULLY DB-driven via the `content` prop (edited in
+// admin > Header tab). Every field is optional:
 //
-// Fields:
-//   topBarShipping — promo line next to "Antar seluruh kota"
+//   topBarLocation — leftmost label (e.g. "Antar seluruh kota")
+//   topBarShipping — promo line next to location (e.g. "Gratis ongkir min. Rp50rb")
 //   contactPhone   — phone number (right side, tel: link)
-//   topBarBadge    — pill badge shown next to phone (e.g. "Buka")
+//   topBarBadge    — pill badge shown on far right (e.g. "Buka · 08.00–21.00")
+//
+// When a field is null/empty, that element HIDES entirely (no
+// default fallback). This lets admin delete any part of the top
+// bar via the dashboard. When ALL fields are empty, the entire top
+// bar hides (no empty strip).
+//
+// Backward compatibility: when `content` prop is omitted entirely
+// (e.g. if Header is used elsewhere without content), all fields
+// are treated as null and the top bar is hidden. The main header
+// (logo + nav + search + actions) always renders.
 // ============================================================
 
 interface HeaderContent {
-  /** Promo shipping line (left side, after "Antar seluruh kota · "). Null = use default. */
+  /** Leftmost location label with map pin. Null/empty = hidden. */
+  topBarLocation?: string | null;
+  /** Promo shipping line with truck icon. Null/empty = hidden. */
   topBarShipping?: string | null;
-  /** Phone number (right side). Null = use default. */
+  /** Phone number with phone icon + tel: link. Null/empty = hidden. */
   contactPhone?: string | null;
-  /** Pill badge next to phone (e.g. "Buka · 08.00–21.00"). Null/empty = hidden. */
+  /** Pill badge on far right (e.g. "Buka · 08.00–21.00"). Null/empty = hidden. */
   topBarBadge?: string | null;
 }
 
@@ -38,17 +48,12 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   /** Brand name from DB (defaults to "SayurLogi") */
   brandName?: string;
-  /** DB-driven top bar content (admin > Header tab). Optional — defaults used when omitted. */
+  /** DB-driven top bar content (admin > Header tab). Optional — when
+   *  omitted or all fields empty, the top bar is hidden. */
   content?: HeaderContent;
   /** Called when user clicks "Riwayat Pesanan" in the customer menu. */
   onOpenOrderHistory?: () => void;
 }
-
-// Defaults — used when content prop is omitted or field is null.
-// These match the previous hardcoded values so existing behavior
-// is preserved when admin hasn't customized anything.
-const DEFAULT_TOP_BAR_SHIPPING = "Gratis ongkir min. Rp50rb";
-const DEFAULT_PHONE = "0800-1234-5678";
 
 export function Header({
   searchQuery,
@@ -62,52 +67,68 @@ export function Header({
   const wishlistCount = useWishlistStore((s) => s.getCount());
   const openWishlist = useWishlistStore((s) => s.openWishlist);
 
-  // Resolve DB-driven top bar fields with defaults.
-  // Null or empty string → fallback to default (so admin can
-  // never accidentally render an empty top bar line).
-  const topBarShipping = content?.topBarShipping?.trim() || DEFAULT_TOP_BAR_SHIPPING;
-  const phone = content?.contactPhone?.trim() || DEFAULT_PHONE;
-  const phoneDigits = phone.replace(/[^\d+]/g, ""); // for tel: link
+  // Resolve DB-driven top bar fields. Empty/null → element hides.
+  // We do NOT fall back to defaults — admin controls visibility by
+  // clearing the field in the dashboard.
+  const topBarLocation = content?.topBarLocation?.trim() || null;
+  const topBarShipping = content?.topBarShipping?.trim() || null;
+  const phone = content?.contactPhone?.trim() || null;
+  const phoneDigits = phone ? phone.replace(/[^\d+]/g, "") : null;
   const topBarBadge = content?.topBarBadge?.trim() || null;
+
+  // Hide entire top bar when ALL 4 fields are empty — avoids
+  // rendering an empty strip with just icons.
+  const hasAnyTopBarContent = !!(topBarLocation || topBarShipping || phone || topBarBadge);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur-lg supports-[backdrop-filter]:bg-background/70 shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_12px_-4px_rgba(0,0,0,0.08)]">
-      {/* ============ Top bar (desktop only) — tinted bg, better contrast ============ */}
-      <div className="hidden md:block border-b border-border/40 bg-gradient-to-r from-primary/8 via-primary/5 to-primary/8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-[13px] text-foreground/70">
-          <div className="flex items-center gap-5">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium">Antar seluruh kota</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="flex items-center gap-1 text-foreground/60">
-                <Truck className="h-3.5 w-3.5 text-primary" />
-                {topBarShipping}
-              </span>
-            </span>
-            <a
-              href={`tel:${phoneDigits}`}
-              className="flex items-center gap-1.5 hover:text-primary transition-colors"
-            >
-              <Phone className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium">{phone}</span>
-            </a>
-          </div>
-          <div className="flex items-center gap-2">
-            {topBarBadge ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                <Tag className="h-3 w-3" />
-                {topBarBadge}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-primary font-semibold">
-                <Leaf className="h-3.5 w-3.5" />
-                Petani Lokal • 100% Segar
-              </span>
-            )}
+      {/* ============ Top bar (desktop only) — fully DB-driven, hides when all empty ============ */}
+      {hasAnyTopBarContent && (
+        <div className="hidden md:block border-b border-border/40 bg-gradient-to-r from-primary/8 via-primary/5 to-primary/8">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-[13px] text-foreground/70">
+            {/* Left side: location + shipping promo */}
+            <div className="flex items-center gap-5">
+              {(topBarLocation || topBarShipping) && (
+                <span className="flex items-center gap-1.5">
+                  {topBarLocation && (
+                    <>
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                      <span className="font-medium">{topBarLocation}</span>
+                    </>
+                  )}
+                  {topBarLocation && topBarShipping && (
+                    <span className="text-muted-foreground">·</span>
+                  )}
+                  {topBarShipping && (
+                    <span className="flex items-center gap-1 text-foreground/60">
+                      <Truck className="h-3.5 w-3.5 text-primary" />
+                      {topBarShipping}
+                    </span>
+                  )}
+                </span>
+              )}
+              {phone && (
+                <a
+                  href={`tel:${phoneDigits}`}
+                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                >
+                  <Phone className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-medium">{phone}</span>
+                </a>
+              )}
+            </div>
+            {/* Right side: badge (or default brand tagline when no badge) */}
+            <div className="flex items-center gap-2">
+              {topBarBadge ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  <Tag className="h-3 w-3" />
+                  {topBarBadge}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ============ Main header ============ */}
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2.5 md:gap-5 md:px-4 md:py-3">
