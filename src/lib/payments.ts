@@ -27,7 +27,7 @@ function generateVaNumber(): string {
 /** Generate a mock payment URL for e-wallet. */
 function generatePaymentUrl(trackingId: string, provider: string): string {
   // Mock: in production, this would be Midtrans snap redirect URL
-  return `https://pay.sayurbox.id/mock/${trackingId}/${provider.toLowerCase()}`;
+  return `https://pay.sayurlogi.id/mock/${trackingId}/${provider.toLowerCase()}`;
 }
 
 export interface PaymentResult {

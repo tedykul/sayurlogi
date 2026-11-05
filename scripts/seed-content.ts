@@ -31,7 +31,7 @@ async function main() {
         "Diskon hingga 25% untuk semua sayuran organik. Berlaku sampai akhir minggu.",
       // Contact
       contactPhone: "0800-1234-5678",
-      contactEmail: "halo@sayurbox.id",
+      contactEmail: "halo@sayurlogi.id",
       contactAddress: "Jl. Petani Sejahtera No. 88, Jakarta Selatan",
       contactHours: "Setiap hari, 08.00 - 21.00 WIB",
       // About
@@ -40,12 +40,12 @@ async function main() {
       aboutTitleHighlight: "Langsung ke Meja Makan",
       aboutTitleB: "Keluargamu",
       aboutSubtitle:
-        "SayurBox lahir dari kepedulian pada petani Indonesia. Kami menghubungkan petani lokal langsung dengan konsumen — tanpa perantara, tanpa bahan kimia, dengan harga yang adil untuk semua pihak.",
+        "SayurLogi lahir dari kepedulian pada petani Indonesia. Kami menghubungkan petani lokal langsung dengan konsumen — tanpa perantara, tanpa bahan kimia, dengan harga yang adil untuk semua pihak.",
       aboutStoryH3: "Misi Kami 🌱",
       aboutStoryP1:
         "Indonesia adalah negara agraris yang kaya, tapi banyak petani masih kesulitan menjual hasil panen dengan harga layak. Sementara itu, konsumen kota sulit mendapatkan sayur & buah benar-benar segar.",
       aboutStoryP2:
-        "SayurBox menjembatani kedua pihak: petani mendapat harga adil, konsumen mendapat produk segar dengan harga jujur. Win-win untuk semua.",
+        "SayurLogi menjembatani kedua pihak: petani mendapat harga adil, konsumen mendapat produk segar dengan harga jujur. Win-win untuk semua.",
       aboutStat1Value: "5.000+",
       aboutStat1Label: "Pelanggan Bahagia",
       aboutStat2Value: "120+",
@@ -71,7 +71,7 @@ async function main() {
         "Marketplace sayur & buah segar langsung dari petani lokal. Mendukung ekonomi petani Indonesia.",
       footerTagline: "Sayur & Buah Segar",
       // Branding (Sprint 11)
-      brandName: "SayurBox",
+      brandName: "SayurLogi",
       metaDescription:
         "Belanja sayuran dan buah segar langsung dari petani lokal. Antar cepat, kualitas terjamin. Terintegrasi dengan ERPNext.",
       socialInstagram: null,
@@ -86,7 +86,7 @@ async function main() {
   // 2. FAQs
   const faqs: { q: string; a: string }[] = [
     {
-      q: "Bagaimana cara memesan di SayurBox?",
+      q: "Bagaimana cara memesan di SayurLogi?",
       a: "Pilih produk yang kamu inginkan, klik 'Tambah' untuk masuk keranjang. Setelah selesai, klik ikon keranjang lalu 'Checkout Sekarang'. Isi data pengiriman, pilih metode pembayaran, lalu 'Buat Pesanan'. Pesanan akan diproses dan dikirim sesuai jadwal pengiriman yang dipilih.",
     },
     {
@@ -148,7 +148,7 @@ async function main() {
       role: "Chef Restoran",
       avatar: "👨‍🍳",
       rating: 5,
-      text: "Sebagai chef, kualitas bahan adalah segalanya. SayurBox jadi supplier utama restoran saya. Tomatnya ranum, herbs-nya harum, dan harganya bersaing dengan pasar tradisional.",
+      text: "Sebagai chef, kualitas bahan adalah segalanya. SayurLogi jadi supplier utama restoran saya. Tomatnya ranum, herbs-nya harum, dan harganya bersaing dengan pasar tradisional.",
       location: "Bandung",
     },
     {
@@ -164,7 +164,7 @@ async function main() {
       role: "Ayah 2 Anak",
       avatar: "👨",
       rating: 4.5,
-      text: "Anak-anak saya jadi doyan sayur karena SayurBox. Buahnya manis-manis, sayurnya segar. Customer service-nya juga responsif. Recommended!",
+      text: "Anak-anak saya jadi doyan sayur karena SayurLogi. Buahnya manis-manis, sayurnya segar. Customer service-nya juga responsif. Recommended!",
       location: "Depok",
     },
     {
@@ -172,7 +172,7 @@ async function main() {
       role: "Food Blogger",
       avatar: "👩‍🎨",
       rating: 5,
-      text: "Saya review banyak grocery store, SayurBox salah satu yang terbaik. Transparan soal asal produk, organik certification jelas. Worth every rupiah!",
+      text: "Saya review banyak grocery store, SayurLogi salah satu yang terbaik. Transparan soal asal produk, organik certification jelas. Worth every rupiah!",
       location: "Bekasi",
     },
     {

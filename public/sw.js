@@ -13,7 +13,7 @@
 //     ensures changes appear on the first reload, with offline fallback.
 // ============================================================
 
-const CACHE_VERSION = "v31";
+const CACHE_VERSION = "v32";
 const STATIC_CACHE = `sayurlogi-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `sayurlogi-page-${CACHE_VERSION}`;
 const API_CACHE = `sayurlogi-api-${CACHE_VERSION}`;

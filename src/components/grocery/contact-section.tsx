@@ -46,7 +46,7 @@ interface ContactSectionProps {
 
 export function ContactSection({ content }: ContactSectionProps = {}) {
   const phone = content?.contactPhone ?? "0800-1234-5678";
-  const email = content?.contactEmail ?? "halo@sayurbox.id";
+  const email = content?.contactEmail ?? "halo@sayurlogi.id";
   const address = content?.contactAddress ?? "Jl. Petani Sejahtera No. 88, Jakarta Selatan";
   const hours = content?.contactHours ?? "Setiap hari, 08.00 - 21.00 WIB";
 

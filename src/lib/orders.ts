@@ -11,7 +11,7 @@ import type { CartItem } from "@/types/grocery";
 
 const TRACKING_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1 (confusing)
 const TRACKING_ID_LENGTH = 6;
-const TRACKING_PREFIX = "SB"; // SayurBox
+const TRACKING_PREFIX = "SB"; // SayurLogi
 
 /** Generate a unique tracking ID (e.g., "SB3X9K"). Checks DB for collision. */
 export async function generateTrackingId(): Promise<string> {

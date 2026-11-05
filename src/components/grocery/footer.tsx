@@ -54,7 +54,7 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
   const brandTextShort = "Sayur & buah segar dari petani lokal.";
   const tagline = content?.footerTagline ?? "Sayur & Buah Segar";
   const phone = content?.contactPhone ?? "0800-1234-5678";
-  const email = content?.contactEmail ?? "halo@sayurbox.id";
+  const email = content?.contactEmail ?? "halo@sayurlogi.id";
   const address = content?.contactAddress ?? "Jl. Petani Sejahtera No. 88, Jakarta Selatan";
   const hours = content?.contactHours ?? "Setiap hari, 08.00 - 21.00 WIB";
 
