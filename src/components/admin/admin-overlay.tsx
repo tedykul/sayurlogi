@@ -42,6 +42,7 @@ import { IntegrationEditor } from "./sections/integration-editor";
 import { CouponEditor } from "./sections/coupon-editor";
 import { ReviewEditor } from "./sections/review-editor";
 import { DeliveryEditor } from "./sections/delivery-editor";
+import { WelcomeBannerEditor } from "./sections/welcome-banner-editor";
 import { toast } from "sonner";
 
 // ============================================================
@@ -88,6 +89,7 @@ type Tab =
   | "coupons"
   | "reviews"
   | "delivery"
+  | "welcome-banner"
   | "users"
   | "audit"
   | "integration";
@@ -116,6 +118,7 @@ const TABS: TabDef[] = [
   { id: "coupons", label: "Kupon", icon: Ticket },
   { id: "reviews", label: "Reviews", icon: Star },
   { id: "delivery", label: "Delivery", icon: Truck },
+  { id: "welcome-banner", label: "Banner", icon: Sparkles },
   { id: "users", label: "Users", icon: UserCog, adminOnly: true },
   { id: "audit", label: "Audit Log", icon: ScrollText },
   { id: "integration", label: "Integrasi", icon: Link2 },
@@ -306,6 +309,7 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                   {activeTab === "coupons" && <CouponEditor />}
                   {activeTab === "reviews" && <ReviewEditor />}
                   {activeTab === "delivery" && <DeliveryEditor />}
+                  {activeTab === "welcome-banner" && <WelcomeBannerEditor />}
                   {activeTab === "users" && <UserEditor />}
                   {activeTab === "audit" && <AuditLogViewer />}
                   {activeTab === "integration" && <IntegrationEditor />}

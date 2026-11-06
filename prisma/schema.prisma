@@ -253,6 +253,22 @@ model SiteSetting {
   /// When null/empty, the location pin + text hide entirely.
   topBarLocation          String?
   footerCopyrightText     String?
+  // ============================================================
+  // Welcome Banner — full-screen modal shown on first visit.
+  // ============================================================
+  // Admin controls: enable toggle, image upload, title, description,
+  // CTA button text + link, and a version ID (changing it resets
+  // dismiss state so the banner reappears for all users).
+  // ============================================================
+  welcomeBannerEnabled    Boolean  @default(false)
+  welcomeBannerImage      String?
+  welcomeBannerTitle      String?
+  welcomeBannerDescription String?
+  welcomeBannerCtaText    String?
+  welcomeBannerCtaLink    String?
+  /// Version ID — change this to reset dismiss state for all users.
+  /// Dismiss is persisted in localStorage keyed by this value.
+  welcomeBannerVersion    String   @default("v1")
   /// Delivery scheduling master toggle. When true, checkout shows
   /// a slot picker (pagi/siang/sore). When false, checkout uses
   /// the default estimate (same as before scheduling existed).

@@ -25,6 +25,7 @@ import { PromoBanner } from "@/components/grocery/promo-banner";
 import { PromoCarousel } from "@/components/grocery/promo-carousel";
 import { BestSellerCarousel } from "@/components/grocery/best-seller-carousel";
 import { BottomNav } from "@/components/grocery/bottom-nav";
+import { WelcomeBanner } from "@/components/grocery/welcome-banner";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
 import { AdminOverlay } from "@/components/admin/admin-overlay";
@@ -263,6 +264,20 @@ export function HomeClient({ content }: HomeClientProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Welcome Banner — full-screen modal on first visit.
+          Renders only when enabled in admin > Promo tab AND user
+          hasn't dismissed the current version yet. */}
+      <WelcomeBanner
+        content={{
+          enabled: content.welcomeBannerEnabled,
+          image: content.welcomeBannerImage,
+          title: content.welcomeBannerTitle,
+          description: content.welcomeBannerDescription,
+          ctaText: content.welcomeBannerCtaText,
+          ctaLink: content.welcomeBannerCtaLink,
+          version: content.welcomeBannerVersion,
+        }}
+      />
       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}

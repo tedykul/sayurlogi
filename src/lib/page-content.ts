@@ -90,6 +90,14 @@ export interface PageContent {
   topBarBadge: string | null;
   topBarLocation: string | null;
   footerCopyrightText: string | null;
+  // Welcome Banner
+  welcomeBannerEnabled: boolean | null;
+  welcomeBannerImage: string | null;
+  welcomeBannerTitle: string | null;
+  welcomeBannerDescription: string | null;
+  welcomeBannerCtaText: string | null;
+  welcomeBannerCtaLink: string | null;
+  welcomeBannerVersion: string | null;
   faqs: { id: string; q: string; a: string }[];
   testimonials: {
     id: string;
@@ -138,6 +146,14 @@ const NULL_CONTENT = {
   testimonialStat4Value: null, testimonialStat4Label: null, testimonialStat4Subtext: null,
   topBarShipping: null, topBarBadge: null, topBarLocation: null,
   footerCopyrightText: null,
+  // Welcome Banner defaults
+  welcomeBannerEnabled: null,
+  welcomeBannerImage: null,
+  welcomeBannerTitle: null,
+  welcomeBannerDescription: null,
+  welcomeBannerCtaText: null,
+  welcomeBannerCtaLink: null,
+  welcomeBannerVersion: null,
 };
 
 /** Fetch all page content from DB. Safe to call from server component. */

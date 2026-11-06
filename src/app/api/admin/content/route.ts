@@ -84,6 +84,13 @@ export async function POST(req: NextRequest) {
       "testimonialStat4Value", "testimonialStat4Label", "testimonialStat4Subtext",
       "topBarShipping", "topBarBadge", "topBarLocation",
       "footerCopyrightText",
+      // Welcome Banner
+      "welcomeBannerImage",
+      "welcomeBannerTitle",
+      "welcomeBannerDescription",
+      "welcomeBannerCtaText",
+      "welcomeBannerCtaLink",
+      "welcomeBannerVersion",
     ];
     // Integer fields — parsed as Number, persisted as Int? on SiteSetting.
     const intFields = [
@@ -92,8 +99,12 @@ export async function POST(req: NextRequest) {
       "rewardOrderCount",
       "rewardDiscountPercent",
     ];
+    // Boolean fields — parsed as boolean, persisted as Boolean on SiteSetting.
+    const boolFields = [
+      "welcomeBannerEnabled",
+    ];
 
-    const data: Record<string, string | number | null> = {};
+    const data: Record<string, string | number | boolean | null> = {};
     for (const key of allowedFields) {
       if (key in body) {
         const val = body[key];
@@ -110,6 +121,12 @@ export async function POST(req: NextRequest) {
           const n = Number(val);
           data[key] = Number.isFinite(n) ? Math.trunc(n) : null;
         }
+      }
+    }
+    for (const key of boolFields) {
+      if (key in body) {
+        const val = body[key];
+        data[key] = val === true || val === "true" || val === 1 || val === "1";
       }
     }
 
