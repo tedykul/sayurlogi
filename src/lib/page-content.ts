@@ -98,6 +98,9 @@ export interface PageContent {
   welcomeBannerCtaText: string | null;
   welcomeBannerCtaLink: string | null;
   welcomeBannerVersion: string | null;
+  // Google OAuth
+  googleAuthEnabled: boolean | null;
+  googleAuthClientId: string | null;
   faqs: { id: string; q: string; a: string }[];
   testimonials: {
     id: string;
@@ -154,6 +157,9 @@ const NULL_CONTENT = {
   welcomeBannerCtaText: null,
   welcomeBannerCtaLink: null,
   welcomeBannerVersion: null,
+  // Google OAuth defaults
+  googleAuthEnabled: null,
+  googleAuthClientId: null,
 };
 
 /** Fetch all page content from DB. Safe to call from server component. */

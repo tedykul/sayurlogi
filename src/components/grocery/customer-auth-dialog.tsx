@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle } from "lucide-react";
 import { useCustomerStore } from "@/lib/store/customer";
+import { GoogleSignInButton } from "./google-signin-button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { CustomerPublic } from "@/lib/customer-auth";
@@ -30,6 +31,24 @@ type Tab = "login" | "register";
 export function CustomerAuthDialog() {
   const { authDialogOpen, closeAuthDialog, setCustomer } = useCustomerStore();
   const [tab, setTab] = useState<Tab>("login");
+  // Fetch Google Auth config (enabled + clientId) from public API.
+  // Only fetch when dialog opens (avoid unnecessary requests).
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authDialogOpen || googleClientId !== null) return;
+    fetch("/api/admin/content")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const c = data?.content;
+        if (c?.googleAuthEnabled && c?.googleAuthClientId) {
+          setGoogleClientId(c.googleAuthClientId);
+        } else {
+          setGoogleClientId(null); // explicitly null = disabled
+        }
+      })
+      .catch(() => setGoogleClientId(null));
+  }, [authDialogOpen, googleClientId]);
 
   const handleClose = (open: boolean) => {
     if (!open) closeAuthDialog();
@@ -38,7 +57,8 @@ export function CustomerAuthDialog() {
   const onSuccess = (customer: CustomerPublic) => {
     setCustomer(customer);
     closeAuthDialog();
-    toast.success(tab === "login" ? "Selamat datang kembali!" : "Pendaftaran berhasil!");
+    // Note: Google login already shows its own toast in GoogleSignInButton.
+    // Only show toast for email/password login here.
   };
 
   return (
@@ -81,9 +101,17 @@ export function CustomerAuthDialog() {
         </div>
 
         {tab === "login" ? (
-          <LoginForm onSuccess={onSuccess} onSwitchToRegister={() => setTab("register")} />
+          <LoginForm
+            onSuccess={onSuccess}
+            onSwitchToRegister={() => setTab("register")}
+            googleClientId={googleClientId}
+          />
         ) : (
-          <RegisterForm onSuccess={onSuccess} onSwitchToLogin={() => setTab("login")} />
+          <RegisterForm
+            onSuccess={onSuccess}
+            onSwitchToLogin={() => setTab("login")}
+            googleClientId={googleClientId}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -97,9 +125,11 @@ export function CustomerAuthDialog() {
 function LoginForm({
   onSuccess,
   onSwitchToRegister,
+  googleClientId,
 }: {
   onSuccess: (c: CustomerPublic) => void;
   onSwitchToRegister: () => void;
+  googleClientId: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -136,7 +166,27 @@ function LoginForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="space-y-3">
+      {/* Google Sign-In (only if enabled in admin) */}
+      {googleClientId && (
+        <>
+          <GoogleSignInButton
+            clientId={googleClientId}
+            onSuccess={(c) => {
+              onSuccess(c);
+              toast.success("Selamat datang kembali!");
+            }}
+          />
+          {/* Separator */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">atau masuk dengan email</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <Label className="text-xs font-medium">Email</Label>
         <div className="relative">
@@ -193,6 +243,7 @@ function LoginForm({
         </button>
       </p>
     </form>
+    </div>
   );
 }
 
@@ -203,9 +254,11 @@ function LoginForm({
 function RegisterForm({
   onSuccess,
   onSwitchToLogin,
+  googleClientId,
 }: {
   onSuccess: (c: CustomerPublic) => void;
   onSwitchToLogin: () => void;
+  googleClientId: string | null;
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -260,7 +313,27 @@ function RegisterForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="space-y-3">
+      {/* Google Sign-Up (only if enabled in admin) */}
+      {googleClientId && (
+        <>
+          <GoogleSignInButton
+            clientId={googleClientId}
+            onSuccess={(c) => {
+              onSuccess(c);
+              toast.success("Pendaftaran berhasil!");
+            }}
+          />
+          {/* Separator */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">atau daftar dengan email</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <Label className="text-xs font-medium">Nama Lengkap *</Label>
         <div className="relative">
@@ -387,5 +460,6 @@ function RegisterForm({
         </button>
       </p>
     </form>
+    </div>
   );
 }

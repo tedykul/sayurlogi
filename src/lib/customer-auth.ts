@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
 import { db } from "@/lib/db";
 import {
   createSession,
@@ -158,7 +159,7 @@ export async function loginCustomer(opts: {
     throw new Error("Email atau password salah.");
   }
 
-  const valid = await bcrypt.compare(password, customer.passwordHash);
+  const valid = await bcrypt.compare(password, customer.passwordHash || "");
   if (!valid) {
     throw new Error("Email atau password salah.");
   }
@@ -274,6 +275,141 @@ export async function updateCustomerProfile(
 
   const updated = await db.customer.update({ where: { id: customerId }, data });
   return toPublic(updated);
+}
+
+// ============================================================
+// Google login — verify Google ID token + create/get customer.
+// ============================================================
+// Flow (Opsi B — Custom Google OAuth):
+//   1. Frontend: Google Identity Services (GIS) renders the Google
+//      button. User clicks → Google returns an ID token (JWT).
+//   2. Frontend: sends ID token to POST /api/customer/google-login.
+//   3. Backend (this function): verify ID token via google-auth-
+//      library. Extract email, name, Google sub (unique ID).
+//   4. Find existing Customer by googleId OR email. If not found,
+//      create new Customer (passwordHash null — Google-only user).
+//   5. Create customer_session + set httpOnly cookie (same as
+//      email/password login).
+//
+// Phone handling: Google doesn't provide phone number. New Google
+// users get a placeholder phone ("0000000") that must be updated
+// via profile page before checkout. Existing customers who link
+// Google keep their original phone.
+// ============================================================
+
+export async function loginWithGoogle(opts: {
+  idToken: string;
+  clientId: string;
+}): Promise<{ customer: CustomerPublic; token: string; expiresAt: Date; isNewUser: boolean }> {
+  const { idToken, clientId } = opts;
+
+  if (!idToken) throw new Error("Google ID token wajib diisi.");
+  if (!clientId) throw new Error("Google Client ID belum dikonfigurasi admin.");
+
+  // Verify the ID token using Google's official library.
+  // This checks signature, expiry, audience (must match clientId),
+  // and issuer (accounts.google.com / https://accounts.google.com).
+  const client = new OAuth2Client(clientId);
+  let ticket;
+  try {
+    ticket = await client.verifyIdToken({
+      idToken,
+      audience: clientId,
+    });
+  } catch (err: any) {
+    console.error("[customer-auth] Google token verification failed:", err.message);
+    throw new Error("Token Google tidak valid atau sudah kedaluwarsa.");
+  }
+
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error("Token Google tidak berisi data.");
+  }
+
+  const googleId = payload["sub"];
+  const email = (payload["email"] || "").toLowerCase().trim();
+  const name = payload["name"] || email.split("@")[0] || "Google User";
+
+  if (!googleId || !email) {
+    throw new Error("Token Google tidak berisi email/ID.");
+  }
+
+  // Check if email is verified by Google — we only accept verified
+  // emails to prevent account hijacking via unverified Google emails.
+  if (payload["email_verified"] !== true) {
+    throw new Error("Email Google belum terverifikasi. Verifikasi email Anda di Google dulu.");
+  }
+
+  // Find existing customer by googleId OR email.
+  // - If found by googleId → returning Google user.
+  // - If found by email (but no googleId) → link Google account
+  //   to existing email/password account.
+  // - If not found → create new Customer (Google-only, no password).
+  let customer = await db.customer.findFirst({
+    where: {
+      OR: [{ googleId }, { email }],
+    },
+  });
+
+  let isNewUser = false;
+
+  if (!customer) {
+    // Create new Customer. Phone is required by schema (unique), so
+    // we use a placeholder. User must update it via profile page.
+    // Format: "GOOGLE-{googleId truncated}" ensures uniqueness.
+    const placeholderPhone = `GOOGLE-${googleId.slice(0, 16)}`;
+
+    customer = await db.customer.create({
+      data: {
+        email,
+        name,
+        phone: placeholderPhone,
+        passwordHash: null, // Google-only user
+        googleId,
+        active: true,
+      },
+    });
+    isNewUser = true;
+
+    // Sync to ERPNext (best-effort — same as registerCustomer).
+    ensureCustomer({
+      customerName: name,
+      email,
+      phone: placeholderPhone,
+      address: "",
+      city: "",
+    }).catch(() => {});
+  } else if (!customer.googleId) {
+    // Existing email/password customer — link their Google account.
+    customer = await db.customer.update({
+      where: { id: customer.id },
+      data: { googleId },
+    });
+  }
+
+  if (!customer.active) {
+    throw new Error("Akun Anda dinonaktifkan. Hubungi admin.");
+  }
+
+  // Refresh lastLoginAt (best-effort)
+  db.customer
+    .update({ where: { id: customer.id }, data: { lastLoginAt: new Date() } })
+    .catch(() => {});
+
+  // Create customer_session (same as email/password login).
+  const { token, expiresAt } = await createSession({
+    customerId: customer.id,
+    email: customer.email,
+    role: "customer",
+    method: "google",
+  });
+
+  return {
+    customer: toPublic(customer),
+    token,
+    expiresAt,
+    isNewUser,
+  };
 }
 
 // ============================================================

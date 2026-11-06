@@ -86,7 +86,12 @@ model Customer {
   /// Phone used as login alternative identifier + ERPNext sync key.
   phone           String   @unique
   name            String
-  passwordHash    String
+  /// Password hash (bcrypt). Nullable for Google-only users who
+  /// haven't set a password yet (Google auth doesn't need it).
+  passwordHash    String?
+  /// Google ID for users who registered via Google OAuth. Null for
+  /// email/password users. Unique per Google account.
+  googleId        String?  @unique
   /// Default shipping address (prefill checkout). Nullable.
   defaultAddress  String?
   defaultCity     String?
@@ -269,6 +274,16 @@ model SiteSetting {
   /// Version ID — change this to reset dismiss state for all users.
   /// Dismiss is persisted in localStorage keyed by this value.
   welcomeBannerVersion    String   @default("v1")
+  // ============================================================
+  // Google OAuth — customer login via Google.
+  // ============================================================
+  // Toggle on/off + Client ID stored in DB (editable via admin
+  // dashboard > Integration tab). Client ID is NOT a secret (it's
+  // visible in frontend Google button), so safe to store in DB.
+  // Server verifies Google ID token via google-auth-library.
+  // ============================================================
+  googleAuthEnabled       Boolean  @default(false)
+  googleAuthClientId      String?
   /// Delivery scheduling master toggle. When true, checkout shows
   /// a slot picker (pagi/siang/sore). When false, checkout uses
   /// the default estimate (same as before scheduling existed).

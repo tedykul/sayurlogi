@@ -52,7 +52,7 @@ export async function createSession(opts: {
   customerId?: string | null;
   email?: string | null;
   role?: string;
-  method?: "nextauth" | "password_gate" | "customer";
+  method?: "nextauth" | "password_gate" | "customer" | "google";
 }): Promise<SessionCreateResult> {
   const token = randomBytes(TOKEN_BYTES).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);

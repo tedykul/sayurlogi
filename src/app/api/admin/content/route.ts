@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
       "welcomeBannerCtaText",
       "welcomeBannerCtaLink",
       "welcomeBannerVersion",
+      // Google OAuth
+      "googleAuthClientId",
     ];
     // Integer fields — parsed as Number, persisted as Int? on SiteSetting.
     const intFields = [
@@ -102,6 +104,7 @@ export async function POST(req: NextRequest) {
     // Boolean fields — parsed as boolean, persisted as Boolean on SiteSetting.
     const boolFields = [
       "welcomeBannerEnabled",
+      "googleAuthEnabled",
     ];
 
     const data: Record<string, string | number | boolean | null> = {};

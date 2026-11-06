@@ -7,7 +7,7 @@ import {
   X, Lock, Loader2, AlertCircle, LogOut, Mail, UserCog,
   Home, Sparkles, Phone, HelpCircle, Users, MessageSquare,
   Layers, PanelBottom, PanelTop, ScrollText, Package, Palette,
-  ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck,
+  ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck, Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ import { CouponEditor } from "./sections/coupon-editor";
 import { ReviewEditor } from "./sections/review-editor";
 import { DeliveryEditor } from "./sections/delivery-editor";
 import { WelcomeBannerEditor } from "./sections/welcome-banner-editor";
+import { GoogleAuthEditor } from "./sections/google-auth-editor";
 import { toast } from "sonner";
 
 // ============================================================
@@ -90,6 +91,7 @@ type Tab =
   | "reviews"
   | "delivery"
   | "welcome-banner"
+  | "google-auth"
   | "users"
   | "audit"
   | "integration";
@@ -119,6 +121,7 @@ const TABS: TabDef[] = [
   { id: "reviews", label: "Reviews", icon: Star },
   { id: "delivery", label: "Delivery", icon: Truck },
   { id: "welcome-banner", label: "Banner", icon: Sparkles },
+  { id: "google-auth", label: "Google Auth", icon: Globe },
   { id: "users", label: "Users", icon: UserCog, adminOnly: true },
   { id: "audit", label: "Audit Log", icon: ScrollText },
   { id: "integration", label: "Integrasi", icon: Link2 },
@@ -310,6 +313,7 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                   {activeTab === "reviews" && <ReviewEditor />}
                   {activeTab === "delivery" && <DeliveryEditor />}
                   {activeTab === "welcome-banner" && <WelcomeBannerEditor />}
+                  {activeTab === "google-auth" && <GoogleAuthEditor />}
                   {activeTab === "users" && <UserEditor />}
                   {activeTab === "audit" && <AuditLogViewer />}
                   {activeTab === "integration" && <IntegrationEditor />}
