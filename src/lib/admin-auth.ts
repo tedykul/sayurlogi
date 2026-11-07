@@ -67,6 +67,7 @@ export interface AuthResult {
 async function resolveSession(session: {
   id: string;
   userId: string | null;
+  customerId: string | null;
   email: string | null;
   role: string;
   method: string;
@@ -90,6 +91,22 @@ async function resolveSession(session: {
     await db.session.delete({ where: { id: session.id } }).catch(() => {});
     return null;
   }
+
+  // ============================================================
+  // SECURITY: customer sessions must NEVER resolve to admin.
+  // Customer sessions have customerId set (method 'customer' or
+  // 'google'). Before this guard, a customer could send their own
+  // session token as "Authorization: Bearer <token>" — verifyAuth
+  // found the row, userId was null, and the legacy password-gate
+  // branch below returned an admin AuthResult. That was a critical
+  // privilege escalation (customer → full admin access). Only
+  // true password-gate sessions (no customerId, no userId,
+  // method 'password_gate') may take the legacy path.
+  // ============================================================
+  if (session.customerId || session.method === "customer" || session.method === "google") {
+    return null;
+  }
+
   // Anonymous password-gate session (legacy mode)
   return {
     userId: "",

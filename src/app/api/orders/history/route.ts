@@ -20,8 +20,15 @@ export async function GET(req: NextRequest) {
     }
 
     const where: { OR: Array<Record<string, unknown>> } = { OR: [] };
-    if (email) where.OR.push({ customerEmail: { contains: email } });
-    if (phone) where.OR.push({ customerPhone: { contains: phone } });
+    // SECURITY: exact match (equals), NOT contains. Previously this
+    // used `contains` (substring), which let anyone enumerate other
+    // customers' orders by guessing fragments — e.g. querying
+    // phone="8123" or email="gmail" returned every matching order
+    // with customer name, items, and totals (PII leak). Exact match
+    // requires knowing the full email/phone, same security level as
+    // the tracking-ID pattern.
+    if (email) where.OR.push({ customerEmail: email });
+    if (phone) where.OR.push({ customerPhone: phone });
 
     const orders = await db.order.findMany({
       where,
