@@ -1,0 +1,757 @@
+     1→     1→// This is your Prisma schema file,
+     2→     2→// learn more about it in the docs: https://pris.ly/d/prisma-schema
+     3→     3→
+     4→     4→// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+     5→     5→// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+     6→     6→
+     7→     7→generator client {
+     8→     8→  provider = "prisma-client-js"
+     9→     9→}
+    10→    10→
+    11→    11→datasource db {
+    12→    12→  provider = "sqlite"
+    13→    13→  url      = env("DATABASE_URL")
+    14→    14→}
+    15→    15→
+    16→    16→model User {
+    17→    17→  id        String   @id @default(cuid())
+    18→    18→  email     String   @unique
+    19→    19→  name      String?
+    20→    20→  createdAt DateTime @default(now())
+    21→    21→  updatedAt DateTime @updatedAt
+    22→    22→
+    23→    23→  // NextAuth (Plan B) — admin authentication fields
+    24→    24→  passwordHash String?
+    25→    25→  role         String   @default("viewer")
+    26→    26→  active       Boolean  @default(true)
+    27→    27→  lastLoginAt  DateTime?
+    28→    28→
+    29→    29→  auditLogs AdminAuditLog[]
+    30→    30→  sessions  Session[]
+    31→    31→}
+    32→    32→
+    33→    33→// ============================================================
+    34→    34→// Session — opaque-token server sessions for admin auth.
+    35→    35→// ============================================================
+    36→    36→// Replaces the legacy "Bearer password" scheme. Login route
+    37→    37→// mints a random 32-byte token, stores it here, and sets it as
+    38→    38→// an httpOnly cookie. verifyAuth() reads the cookie → looks up
+    39→    39→// the row → returns the real User (id, email, role).
+    40→    40→//
+    41→    41→// userId is nullable to support the legacy password-gate mode
+    42→    42→// (anonymous admin session when no User row is linked). Real
+    43→    43→// logins always attach a userId.
+    44→    44→// ============================================================
+    45→    45→
+    46→    46→model Session {
+    47→    47→  id        String   @id @default(cuid())
+    48→    48→  token     String   @unique
+    49→    49→  userId    String?
+    50→    50→  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    51→    51→  /// Customer (storefront) user — set when method='customer'.
+    52→    52→  customerId String?
+    53→    53→  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+    54→    54→  /// Snapshot of email for display/audit when userId is null (password-gate).
+    55→    55→  email     String?
+    56→    56→  /// Snapshot of role at session-create time. One of:
+    57→    57→  /// super_admin | admin | staff | viewer | password_gate | customer
+    58→    58→  role      String   @default("viewer")
+    59→    59→  /// "nextauth" (admin user) | "password_gate" (legacy) | "customer" (storefront)
+    60→    60→  method    String   @default("nextauth")
+    61→    61→  expiresAt DateTime
+    62→    62→  createdAt DateTime @default(now())
+    63→    63→
+    64→    64→  @@index([userId])
+    65→    65→  @@index([customerId])
+    66→    66→  @@index([expiresAt])
+    67→    67→}
+    68→    68→
+    69→    69→// ============================================================
+    70→    70→// Customer — storefront customer account (separate from admin User).
+    71→    71→// ============================================================
+    72→    72→// Storefront customers register/login to track orders, save
+    73→    73→// default address, reorder, and (future) earn loyalty points.
+    74→    74→// Separate from admin User because roles/permissions differ and
+    75→    75→// customer data syncs to ERPNext Customer master.
+    76→    76→//
+    77→    77→// passwordHash: bcrypt-hashed (same scheme as admin User).
+    78→    78→// erpCustomerId: link to ERPNext Customer.name (set on first
+    79→    79→//   sync via ensureCustomer). Null if ERPNext not configured.
+    80→    80→// defaultAddress/City/Notes: prefill checkout form when logged in.
+    81→    81→// ============================================================
+    82→    82→
+    83→    83→model Customer {
+    84→    84→  id              String   @id @default(cuid())
+    85→    85→  email           String   @unique
+    86→    86→  /// Phone used as login alternative identifier + ERPNext sync key.
+    87→    87→  phone           String   @unique
+    88→    88→  name            String
+    89→    89→  passwordHash    String
+    90→    90→  /// Default shipping address (prefill checkout). Nullable.
+    91→    91→  defaultAddress  String?
+    92→    92→  defaultCity     String?
+    93→    93→  defaultNotes    String?
+    94→    94→  /// Link to ERPNext Customer master (set on register via
+    95→    95→  /// ensureCustomer). Null when ERPNext not configured (mock mode).
+    96→    96→  erpCustomerId   String?
+    97→    97→  active          Boolean  @default(true)
+    98→    98→  lastLoginAt     DateTime?
+    99→    99→  createdAt       DateTime @default(now())
+   100→   100→  updatedAt       DateTime @updatedAt
+   101→   101→
+   102→   102→  orders          Order[]
+   103→   103→  sessions        Session[]
+   104→   104→
+   105→   105→  @@index([email])
+   106→   106→  @@index([phone])
+   107→   107→}
+   108→   108→
+   109→   109→model Post {
+   110→   110→  id        String   @id @default(cuid())
+   111→   111→  title     String
+   112→   112→  content   String?
+   113→   113→  published Boolean  @default(false)
+   114→   114→  authorId  String
+   115→   115→  createdAt DateTime @default(now())
+   116→   116→  updatedAt DateTime @updatedAt
+   117→   117→}
+   118→   118→
+   119→   119→/// Messages submitted via the public contact form (Section Kontak).
+   120→   120→/// Persisted for admin follow-up; safe to prune old entries periodically.
+   121→   121→model ContactMessage {
+   122→   122→  id        String   @id @default(cuid())
+   123→   123→  name      String
+   124→   124→  email     String
+   125→   125→  phone     String?
+   126→   126→  subject   String
+   127→   127→  message   String
+   128→   128→  /// Status of admin follow-up: pending | replied | archived
+   129→   129→  status    String   @default("pending")
+   130→   130→  createdAt DateTime @default(now())
+   131→   131→  updatedAt DateTime @updatedAt
+   132→   132→
+   133→   133→  @@index([status])
+   134→   134→  @@index([createdAt])
+   135→   135→}
+   136→   136→
+   137→   137→/// Email subscribers from the footer newsletter signup form.
+   138→   138→/// Unique email constraint prevents duplicates.
+   139→   139→model NewsletterSubscriber {
+   140→   140→  id        String   @id @default(cuid())
+   141→   141→  email     String   @unique
+   142→   142→  /// Status: active | unsubscribed
+   143→   143→  status    String   @default("active")
+   144→   144→  /// Source of subscription: footer | promo | manual
+   145→   145→  source    String   @default("footer")
+   146→   146→  createdAt DateTime @default(now())
+   147→   147→  updatedAt DateTime @updatedAt
+   148→   148→
+   149→   149→  @@index([status])
+   150→   150→  @@index([createdAt])
+   151→   151→}
+   152→   152→
+   153→   153→// ============================================================
+   154→   154→// Admin-editable content models
+   155→   155→// ============================================================
+   156→   156→// SiteSetting: singleton row holding key-value content for Hero,
+   157→   157→// Promo, Contact, About, Footer sections. Fallback to hardcoded
+   158→   158→// defaults if row missing or field null (backward compat).
+   159→   159→// ============================================================
+   160→   160→
+   161→   161→/// Singleton row (id='singleton') holding editable site content.
+   162→   162→/// All fields optional — null means use hardcoded default.
+   163→   163→model SiteSetting {
+   164→   164→  id    String  @id @default("singleton")
+   165→   165→
+   166→   166→  // Hero section
+   167→   167→  heroBadge        String? // "Dipetik pagi, sampai rumah siang"
+   168→   168→  heroTitleA       String? // "Sayur & Buah"
+   169→   169→  heroTitleHighlight String? // "Segar Harian"
+   170→   170→  heroTitleB       String? // "dari Petani Lokal"
+   171→   171→  heroSubtitle     String?
+   172→   172→  heroCtaPrimary   String? // "Mulai Belanja"
+   173→   173→  heroCtaSecondary String? // "Lihat Promo"
+   174→   174→
+   175→   175→  // Promo banner
+   176→   176→  promoId          String? // unique campaign id (changing resets dismiss)
+   177→   177→  promoTitle       String?
+   178→   178→  promoDescription String?
+   179→   179→
+   180→   180→  // Contact section
+   181→   181→  contactPhone     String?
+   182→   182→  contactEmail     String?
+   183→   183→  contactAddress   String?
+   184→   184→  contactHours     String?
+   185→   185→
+   186→   186→  // About section
+   187→   187→  aboutBadge       String?
+   188→   188→  aboutTitleA      String?
+   189→   189→  aboutTitleHighlight String?
+   190→   190→  aboutTitleB      String?
+   191→   191→  aboutSubtitle    String?
+   192→   192→  aboutStoryH3     String?
+   193→   193→  aboutStoryP1     String?
+   194→   194→  aboutStoryP2     String?
+   195→   195→  aboutStat1Value  String?
+   196→   196→  aboutStat1Label  String?
+   197→   197→  aboutStat2Value  String?
+   198→   198→  aboutStat2Label  String?
+   199→   199→  aboutStat3Value  String?
+   200→   200→  aboutStat3Label  String?
+   201→   201→  aboutStat4Value  String?
+   202→   202→  aboutStat4Label  String?
+   203→   203→  aboutValue1Title String?
+   204→   204→  aboutValue1Desc  String?
+   205→   205→  aboutValue2Title String?
+   206→   206→  aboutValue2Desc  String?
+   207→   207→  aboutValue3Title String?
+   208→   208→  aboutValue3Desc  String?
+   209→   209→  aboutValue4Title String?
+   210→   210→  aboutValue4Desc  String?
+   211→   211→
+   212→   212→  // Footer
+   213→   213→  footerBrandText  String?
+   214→   214→  footerTagline    String?
+   215→   215→
+   216→   216→  // Branding (Sprint 11 — Branding Lite)
+   217→   217→  brandName        String? // "SayurBox" — used in header, footer, metadata
+   218→   218→  metaDescription  String? // SEO meta description
+   219→   219→  socialInstagram  String? // URL or null
+   220→   220→  socialFacebook   String?
+   221→   221→  socialTwitter    String?
+   222→   222→  socialTiktok     String?
+   223→   223→  socialWhatsapp   String? // wa.me link
+   224→   224→
+   225→   225→  // Sprints 12-24 — favicon, shipping, reward, about image, testimonial,
+   226→   226→  // top bar, footer copyright.
+   227→   227→  faviconUrl              String?
+   228→   228→  freeShippingThreshold   Int?
+   229→   229→  shippingFee             Int?
+   230→   230→  rewardOrderCount        Int?
+   231→   231→  rewardDiscountPercent   Int?
+   232→   232→  aboutImage              String?
+   233→   233→  testimonialBadge        String?
+   234→   234→  testimonialTitleA       String?
+   235→   235→  testimonialTitleHighlight String?
+   236→   236→  testimonialTitleB       String?
+   237→   237→  testimonialSubtitle     String?
+   238→   238→  testimonialStat1Value   String?
+   239→   239→  testimonialStat1Label   String?
+   240→   240→  testimonialStat1Subtext String?
+   241→   241→  testimonialStat2Value   String?
+   242→   242→  testimonialStat2Label   String?
+   243→   243→  testimonialStat2Subtext String?
+   244→   244→  testimonialStat3Value   String?
+   245→   245→  testimonialStat3Label   String?
+   246→   246→  testimonialStat3Subtext String?
+   247→   247→  testimonialStat4Value   String?
+   248→   248→  testimonialStat4Label   String?
+   249→   249→  testimonialStat4Subtext String?
+   250→   250→  topBarShipping          String?
+   251→   251→  topBarBadge             String?
+   252→   252→  footerCopyrightText     String?
+   253→   253→  /// Delivery scheduling master toggle. When true, checkout shows
+   254→   254→  /// a slot picker (pagi/siang/sore). When false, checkout uses
+   255→   255→  /// the default estimate (same as before scheduling existed).
+   256→   256→  deliverySchedulingEnabled Boolean @default(false)
+   257→   257→
+   258→   258→  updatedAt DateTime @updatedAt
+   259→   259→}
+   260→   260→
+   261→   261→/// FAQ items — orderable, publishable.
+   262→   262→model FAQ {
+   263→   263→  id        String  @id @default(cuid())
+   264→   264→  question  String
+   265→   265→  answer    String
+   266→   266→  order     Int     @default(0)
+   267→   267→  published Boolean @default(true)
+   268→   268→  createdAt DateTime @default(now())
+   269→   269→  updatedAt DateTime @updatedAt
+   270→   270→
+   271→   271→  @@index([published])
+   272→   272→  @@index([order])
+   273→   273→}
+   274→   274→
+   275→   275→/// Testimonials — orderable, publishable.
+   276→   276→model Testimonial {
+   277→   277→  id        String  @id @default(cuid())
+   278→   278→  name      String
+   279→   279→  role      String
+   280→   280→  avatar    String  // emoji
+   281→   281→  rating    Float   // 0-5
+   282→   282→  text      String
+   283→   283→  location  String
+   284→   284→  order     Int     @default(0)
+   285→   285→  published Boolean @default(true)
+   286→   286→  createdAt DateTime @default(now())
+   287→   287→  updatedAt DateTime @updatedAt
+   288→   288→
+   289→   289→  @@index([published])
+   290→   290→  @@index([order])
+   291→   291→}
+   292→   292→
+   293→   293→/// Categories (Item Group display) — editable emoji, name, description.
+   294→   294→/// Kept separate from ERPNext Item Group to allow custom display config.
+   295→   295→model CategorySetting {
+   296→   296→  id          String  @id @default(cuid())
+   297→   297→  name        String  @unique // matches Product.category
+   298→   298→  emoji       String
+   299→   299→  description String?
+   300→   300→  gradient    String  // tailwind gradient classes
+   301→   301→  order       Int     @default(0)
+   302→   302→  published   Boolean @default(true)
+   303→   303→  createdAt   DateTime @default(now())
+   304→   304→  updatedAt   DateTime @updatedAt
+   305→   305→
+   306→   306→  @@index([published])
+   307→   307→  @@index([order])
+   308→   308→}
+   309→   309→
+   310→   310→// ============================================================
+   311→   311→// Audit log — track all admin actions for accountability.
+   312→   312→// ============================================================
+   313→   313→// Sprint 6 (Skenario C): logs IP + timestamp + action (no user
+   314→   314→// tracking since password gate is shared). When upgraded to NextAuth
+   315→   315→// (Plan B), add userId field for user-specific tracking.
+   316→   316→// ============================================================
+   317→   317→
+   318→   318→/// Audit log entries for all admin API actions.
+   319→   319→model AdminAuditLog {
+   320→   320→  id        String   @id @default(cuid())
+   321→   321→  action    String
+   322→   322→  target    String
+   323→   323→  ip        String?
+   324→   324→  userAgent String?
+   325→   325→  success   Boolean  @default(true)
+   326→   326→  detail    String?
+   327→   327→  createdAt DateTime @default(now())
+   328→   328→
+   329→   329→  // NextAuth — user tracking fields (nullable for backward compat)
+   330→   330→  userId    String?
+   331→   331→  userEmail String?
+   332→   332→
+   333→   333→  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+   334→   334→
+   335→   335→  @@index([createdAt])
+   336→   336→  @@index([action])
+   337→   337→  @@index([ip])
+   338→   338→  @@index([userId])
+   339→   339→}
+   340→   340→
+   341→   341→// ============================================================
+   342→   342→// Orders — customer orders for tracking + admin management.
+   343→   343→// ============================================================
+   344→   344→// Order: header record (1 per checkout). itemsJson: line items as
+   345→   345→// JSON string (avoids separate table for simplicity).
+   346→   346→// trackingId: customer-facing ID (6-char uppercase alphanumeric,
+   347→   347→//   easy to share via WhatsApp).
+   348→   348→// status: pending → confirmed → preparing → out_for_delivery →
+   349→   349→//   delivered (or cancelled). Admin updates via dashboard.
+   350→   350→// erpSalesOrderName: link to ERPNext Sales Order (null in mock mode).
+   351→   351→// ============================================================
+   352→   352→
+   353→   353→model Order {
+   354→   354→  id              String   @id @default(cuid())
+   355→   355→  /// Customer-facing tracking ID (6-char uppercase alphanumeric)
+   356→   356→  trackingId      String   @unique
+   357→   357→  /// Customer info (snapshot at order time)
+   358→   358→  customerName    String
+   359→   359→  customerEmail   String?
+   360→   360→  customerPhone   String
+   361→   361→  customerAddress String
+   362→   362→  customerCity    String?
+   363→   363→  customerNotes   String?
+   364→   364→  /// Order details (JSON string of items array)
+   365→   365→  itemsJson       String
+   366→   366→  subtotal        Int      // in IDR
+   367→   367→  shipping        Int      // in IDR
+   368→   368→  total           Int      // in IDR
+   369→   369→  /// Discount applied (reward / promo / coupon) in IDR. Defaults to 0.
+   370→   370→  discount        Int      @default(0)
+   371→   371→  /// Coupon code applied (snapshot). Null = no coupon used.
+   372→   372→  couponCode      String?
+   373→   373→  /// Customer account link (null for guest checkout). When set,
+   374→   374→  /// the order shows up in the customer's order history.
+   375→   375→  customerId      String?
+   376→   376→  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+   377→   377→  deliveryMethod  String   // "delivery" | "pickup"
+   378→   378→  paymentMethod   String   // "cod" | "transfer" | "ewallet"
+   379→   379→  /// Status workflow: pending → confirmed → preparing →
+   380→   380→  /// out_for_delivery → delivered | cancelled
+   381→   381→  status          String   @default("pending")
+   382→   382→  /// Link to ERPNext Sales Order (null in mock mode)
+   383→   383→  erpSalesOrderName String?
+   384→   384→  /// Estimated delivery time (ISO string)
+   385→   385→  estimatedDelivery String?
+   386→   386→  /// Delivery slot ID (when scheduling enabled). Null = no slot
+   387→   387→  /// selected (scheduling disabled or pickup).
+   388→   388→  deliverySlotId   String?
+   389→   389→  /// Delivery slot label snapshot (e.g. "Sen, 3 Nov 09:00-12:00")
+   390→   390→  /// so order display works even if the slot row is later deleted.
+   391→   391→  deliverySlotLabel String?
+   392→   392→  /// JSON array of {status, timestamp} for history tracking
+   393→   393→  statusHistoryJson String?
+   394→   394→  createdAt       DateTime @default(now())
+   395→   395→  updatedAt       DateTime @updatedAt
+   396→   396→
+   397→   397→  @@index([trackingId])
+   398→   398→  @@index([status])
+   399→   399→  @@index([createdAt])
+   400→   400→  @@index([customerPhone])
+   401→   401→  @@index([customerEmail])
+   402→   402→  @@index([couponCode])
+   403→   403→  @@index([customerId])
+   404→   404→}
+   405→   405→
+   406→   406→// ============================================================
+   407→   407→// OrderReview — customer review per order (grocery model).
+   408→   408→// ============================================================
+   409→   409→// One review per order (orderId unique). Customer can submit
+   410→   410→// only after order status = "delivered". Moderated by admin
+   411→   411→// before publishing to the storefront (status: pending →
+   412→   412→// published | rejected).
+   413→   413→//
+   414→   414→// Sub-ratings (1-5, optional) are grocery-specific:
+   415→   415→//   freshnessRating — quality of produce
+   416→   416→//   deliveryRating   — speed + condition on arrival
+   417→   417→//   packingRating    — packaging quality
+   418→   418→//
+   419→   419→// adminReply (optional) — admin response shown alongside the
+   420→   420→// review on the storefront.
+   421→   421→// ============================================================
+   422→   422→
+   423→   423→model OrderReview {
+   424→   424→  id              String   @id @default(cuid())
+   425→   425→  /// One review per order. orderId is unique.
+   426→   426→  orderId         String   @unique
+   427→   427→  /// Snapshot of trackingId for display.
+   428→   428→  trackingId      String
+   429→   429→  customerName    String
+   430→   430→  /// Overall rating 1-5.
+   431→   431→  rating          Int
+   432→   432→  /// Optional sub-ratings 1-5 (null = not provided).
+   433→   433→  freshnessRating Int?
+   434→   434→  deliveryRating   Int?
+   435→   435→  packingRating    Int?
+   436→   436→  title           String?
+   437→   437→  comment         String?
+   438→   438→  /// Moderation status: pending | published | rejected
+   439→   439→  status          String   @default("pending")
+   440→   440→  /// Optional admin reply (shown alongside review when published).
+   441→   441→  adminReply      String?
+   442→   442→  createdAt       DateTime @default(now())
+   443→   443→  updatedAt       DateTime @updatedAt
+   444→   444→  /// Set when admin publishes. Null while pending/rejected.
+   445→   445→  publishedAt     DateTime?
+   446→   446→
+   447→   447→  @@index([status])
+   448→   448→  @@index([publishedAt])
+   449→   449→  @@index([rating])
+   450→   450→}
+   451→   451→
+   452→   452→// ============================================================
+   453→   453→// SharedWishlist — shareable wishlist snapshot (public link).
+   454→   454→// ============================================================
+   455→   455→// Customer clicks "Share" in the wishlist sheet → we create a
+   456→   456→// snapshot of the current items (JSON of product essentials) +
+   457→   457→// mint a random 10-char token. The recipient opens
+   458→   458→//   /?wishlist=<token>
+   459→   459→// and sees a read-only dialog with the items + "add all to
+   460→   460→// cart" / "save to my wishlist" actions.
+   461→   461→//
+   462→   462→// token: 10-char base32 (uppercase, unambiguous chars). Unique.
+   463→   463→// itemsJson: JSON array of SharedWishlistItem (id, name, price,
+   464→   464→//   emoji, image, unit, itemCode, category — enough to render +
+   465→   465→//   re-add to cart without re-fetching).
+   466→   466→// title: optional custom name (default "Wishlist dari SayurLogi")
+   467→   467→// expiresAt: 30 days from creation (auto-cleanup). Null = never.
+   468→   468→// viewCount: incremented each time the link is opened.
+   469→   469→// ============================================================
+   470→   470→
+   471→   471→model SharedWishlist {
+   472→   472→  id        String   @id @default(cuid())
+   473→   473→  token     String   @unique
+   474→   474→  title     String   @default("Wishlist dari SayurLogi")
+   475→   475→  itemsJson String
+   476→   476→  viewCount Int      @default(0)
+   477→   477→  expiresAt DateTime?
+   478→   478→  createdAt DateTime @default(now())
+   479→   479→  updatedAt DateTime @updatedAt
+   480→   480→
+   481→   481→  @@index([token])
+   482→   482→  @@index([createdAt])
+   483→   483→  @@index([expiresAt])
+   484→   484→}
+   485→   485→
+   486→   486→// ============================================================
+   487→   487→// Coupon — discount code system (customer-input codes).
+   488→   488→// ============================================================
+   489→   489→// Dual-layer with ERPNext Pricing Rule:
+   490→   490→//   - Coupon (here): customer-input codes at checkout
+   491→   491→//     (WELCOME10, ONGKIR0, HEMAT20). Validated + redeemed here.
+   492→   492→//   - ERPNext Pricing Rule: automatic discounts per-item/customer
+   493→   493→//     (synced into Product price). Not managed here.
+   494→   494→//
+   495→   495→// type: "percent" | "fixed" | "free_shipping"
+   496→   496→//   percent       — value = 1..100 (percent off subtotal)
+   497→   497→//   fixed         — value = IDR amount off subtotal
+   498→   498→//   free_shipping — value ignored; sets shipping to 0
+   499→   499→//
+   500→   500→// scopeType: "all" | "category" | "product"
+   501→   501→//   all       — applies to any order
+   502→   502→//   category  — only when cart has items in scopeValue category
+   503→   503→//   product   — only when cart has item with scopeValue itemCode
+   504→   504→//
+   505→   505→// Anti-abuse:
+   506→   506→//   maxUsage     — total times coupon can be redeemed (0 = unlimited)
+   507→   507→//   maxPerUser   — per-customer limit (identified by email or phone)
+   508→   508→//   usedCount    — current redemption count (incremented atomically)
+   509→   509→// ============================================================
+   510→   510→
+   511→   511→model Coupon {
+   512→   512→  id          String   @id @default(cuid())
+   513→   513→  code        String   @unique
+   514→   514→  /// "percent" | "fixed" | "free_shipping"
+   515→   515→  type        String
+   516→   516→  /// Percent (1-100) or IDR amount. Ignored for free_shipping.
+   517→   517→  value       Int      @default(0)
+   518→   518→  /// Minimum subtotal (IDR) for coupon to apply. 0 = no minimum.
+   519→   519→  minOrder    Int      @default(0)
+   520→   520→  /// Max total redemptions. 0 = unlimited.
+   521→   521→  maxUsage    Int      @default(0)
+   522→   522→  /// Max redemptions per customer (by email or phone). 0 = unlimited.
+   523→   523→  maxPerUser  Int      @default(1)
+   524→   524→  usedCount   Int      @default(0)
+   525→   525→  startsAt    DateTime?
+   526→   526→  expiresAt   DateTime?
+   527→   527→  active      Boolean  @default(true)
+   528→   528→  /// "all" | "category" | "product"
+   529→   529→  scopeType   String   @default("all")
+   530→   530→  /// Category name or itemCode (when scopeType != "all")
+   531→   531→  scopeValue  String?
+   532→   532→  /// Optional internal note (admin only)
+   533→   533→  note        String?
+   534→   534→  createdAt   DateTime @default(now())
+   535→   535→  updatedAt   DateTime @updatedAt
+   536→   536→
+   537→   537→  usages      CouponUsage[]
+   538→   538→
+   539→   539→  @@index([active])
+   540→   540→  @@index([expiresAt])
+   541→   541→}
+   542→   542→
+   543→   543→/// CouponUsage — one row per redemption. Anti-abuse + audit.
+   544→   544→/// Identified by email OR phone (guest checkout). userId null
+   545→   545→/// for guest (no auth on storefront).
+   546→   546→model CouponUsage {
+   547→   547→  id        String   @id @default(cuid())
+   548→   548→  couponId  String
+   549→   549→  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+   550→   550→  /// Snapshot of coupon code for display even if coupon deleted.
+   551→   551→  code      String
+   552→   552→  orderId   String?
+   553→   553→  /// Customer identifier (email or phone, whichever was provided)
+   554→   554→  email     String?
+   555→   555→  phone     String?
+   556→   556→  userId    String?
+   557→   557→  /// Discount amount applied (IDR, snapshot)
+   558→   558→  discount  Int
+   559→   559→  usedAt    DateTime @default(now())
+   560→   560→
+   561→   561→  @@index([couponId])
+   562→   562→  @@index([email])
+   563→   563→  @@index([phone])
+   564→   564→  @@index([orderId])
+   565→   565→}
+   566→   566→
+   567→   567→// ============================================================
+   568→   568→// Payments — mock payment gateway (ready for Midtrans upgrade).
+   569→   569→// ============================================================
+   570→   570→// Payment: 1 per order. Status: pending → paid → failed.
+   571→   571→// method: "cod" | "transfer" | "ewallet"
+   572→   572→// vaNumber: Virtual Account number for transfer (mock: random)
+   573→   573→// paymentUrl: payment link for e-wallet (mock)
+   574→   574→// When upgraded to Midtrans: replace mock VA/URL with real API response.
+   575→   575→// ============================================================
+   576→   576→
+   577→   577→model Payment {
+   578→   578→  id          String   @id @default(cuid())
+   579→   579→  orderId     String   @unique
+   580→   580→  trackingId  String   // snapshot for customer reference
+   581→   581→  method      String   // "cod" | "transfer" | "ewallet"
+   582→   582→  amount      Int      // in IDR
+   583→   583→  status      String   @default("pending") // "pending" | "paid" | "failed"
+   584→   584→  /// VA number for transfer (mock: random 12-digit)
+   585→   585→  vaNumber    String?
+   586→   586→  /// Bank name for VA
+   587→   587→  vaBank      String?
+   588→   588→  /// Payment URL for e-wallet (mock)
+   589→   589→  paymentUrl  String?
+   590→   590→  paidAt      DateTime?
+   591→   591→  createdAt   DateTime @default(now())
+   592→   592→  updatedAt   DateTime @updatedAt
+   593→   593→
+   594→   594→  @@index([orderId])
+   595→   595→  @@index([status])
+   596→   596→  @@index([trackingId])
+   597→   597→}
+   598→   598→
+   599→   599→// ============================================================
+   600→   600→// Products — admin-managed product catalog (DB-first, with ERPNext
+   601→   601→// sync as a secondary source). Stored separately from ERPNext Item
+   602→   602→// so admin can edit/publish/organize without affecting ERPNext.
+   603→   603→// ============================================================
+   604→   604→// itemCode: unique business key (maps to ERPNext item_code)
+   605→   605→// variants: optional SKU-level variants (e.g. 250gr, 500gr, 1kg)
+   606→   606→// published: visibility on public storefront (hidden = admin-only)
+   607→   607→// order: manual ordering on storefront (asc)
+   608→   608→// ============================================================
+   609→   609→
+   610→   610→model Product {
+   611→   611→  id              String   @id @default(cuid())
+   612→   612→  /// Business key — unique. Maps to ERPNext item_code when synced.
+   613→   613→  itemCode        String   @unique
+   614→   614→  name            String
+   615→   615→  description     String   @default("")
+   616→   616→  /// Long-form description shown in detail modal (markdown/plain text).
+   617→   617→  longDescription String?
+   618→   618→  category        String   @default("Lainnya")
+   619→   619→  /// Price in IDR
+   620→   620→  price           Int      @default(0)
+   621→   621→  /// Old price for discount display. Null = no discount shown.
+   622→   622→  oldPrice        Int?
+   623→   623→  unit            String   @default("pcs")
+   624→   624→  stock           Int      @default(0)
+   625→   625→  emoji           String   @default("🛒")
+   626→   626→  /// Image URL (relative path like /products/tomat.png, or absolute URL)
+   627→   627→  image           String?
+   628→   628→  organic         Boolean  @default(false)
+   629→   629→  onSale          Boolean  @default(false)
+   630→   630→  /// JSON-encoded string array of tags: ["lokal","segar","organik"]
+   631→   631→  tags            String?
+   632→   632→  /// JSON-encoded string array of benefit bullet points
+   633→   633→  benefits        String?
+   634→   634→  storageTip      String?
+   635→   635→  origin          String?
+   636→   636→  published       Boolean  @default(true)
+   637→   637→  order           Int      @default(0)
+   638→   638→  /// Last ERPNext sync timestamp (null = never synced)
+   639→   639→  erpSyncedAt     DateTime?
+   640→   640→  createdAt       DateTime @default(now())
+   641→   641→  updatedAt       DateTime @updatedAt
+   642→   642→
+   643→   643→  variants        ProductVariant[]
+   644→   644→
+   645→   645→  @@index([category])
+   646→   646→  @@index([published])
+   647→   647→  @@index([order])
+   648→   648→}
+   649→   649→
+   650→   650→/// Product variants — optional SKU-level child rows.
+   651→   651→/// e.g. Product "Beras Organik" → variants 250gr, 500gr, 1kg.
+   652→   652→model ProductVariant {
+   653→   653→  id          String   @id @default(cuid())
+   654→   654→  productId   String
+   655→   655→  name        String
+   656→   656→  price       Int      @default(0)
+   657→   657→  oldPrice    Int?
+   658→   658→  stock       Int      @default(0)
+   659→   659→  unit        String   @default("pcs")
+   660→   660→  /// SKU code (optional)
+   661→   661→  sku         String?
+   662→   662→  createdAt   DateTime @default(now())
+   663→   663→  updatedAt   DateTime @updatedAt
+   664→   664→
+   665→   665→  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+   666→   666→
+   667→   667→  @@index([productId])
+   668→   668→}
+   669→   669→
+   670→   670→// ============================================================
+   671→   671→// Integration Config — stores ERPNext + other integration
+   672→   672→// settings in DB (editable via admin UI, no env restart needed).
+   673→   673→// ============================================================
+   674→   674→// Keys: erpnext_url, erpnext_api_key, erpnext_api_secret,
+   675→   675→//       erpnext_warehouse, erpnext_company, erpnext_site
+   676→   676→// isSecret=true → value is encrypted (AES-256-CBC) before save
+   677→   677→// ============================================================
+   678→   678→
+   679→   679→// ============================================================
+   680→   680→// DeliverySlot — delivery time slots for scheduling.
+   681→   681→// ============================================================
+   682→   682→// Default slots generated daily: Pagi (09-12), Siang (12-15),
+   683→   683→// Sore (15-18). Admin can:
+   684→   684→//   - enable/disable scheduling (SiteSetting.deliverySchedulingEnabled)
+   685→   685→//   - block specific dates (blockedDates JSON array of ISO dates)
+   686→   686→//   - set maxOrders per slot (auto-closes when full)
+   687→   687→//   - set sameDayCutoffHour (orders before X can pick today)
+   688→   688→//
+   689→   689→// Slots are generated on-demand for the next 7 days. The
+   690→   690→// currentOrders count is maintained atomically when an order is
+   691→   691→// placed (increment) or cancelled (decrement).
+   692→   692→// ============================================================
+   693→   693→
+   694→   694→model DeliverySlot {
+   695→   695→  id            String   @id @default(cuid())
+   696→   696→  /// ISO date "YYYY-MM-DD" (the day of this slot)
+   697→   697→  date          String
+   698→   698→  /// Slot window start hour (9, 12, or 15)
+   699→   699→  startHour     Int
+   700→   700→  /// Slot window end hour (12, 15, or 18)
+   701→   701→  endHour       Int
+   702→   702→  /// Label: "Pagi" | "Siang" | "Sore"
+   703→   703→  label         String
+   704→   704→  /// Max orders for this slot. 0 = no limit.
+   705→   705→  maxOrders     Int      @default(20)
+   706→   706→  /// Current booked orders (incremented on checkout, decremented on cancel)
+   707→   707→  currentOrders Int      @default(0)
+   708→   708→  /// Admin can manually close a slot (e.g. kurir absen)
+   709→   709→  closed        Boolean  @default(false)
+   710→   710→  createdAt     DateTime @default(now())
+   711→   711→  updatedAt     DateTime @updatedAt
+   712→   712→
+   713→   713→  @@unique([date, startHour])
+   714→   714→  @@index([date])
+   715→   715→  @@index([closed])
+   716→   716→}
+   717→   717→
+   718→   718→
+   719→   719→// ============================================================
+   720→   720→// DeliveryZone — internal shipping zones with flat rates.
+   721→   721→// ============================================================
+   722→   722→// Admin defines areas they deliver to internally (e.g. BTP,
+   723→   723→// Telkomas, Makassar Pusat). Each zone has a flat shipping fee
+   724→   724→// + optional minimum order for free shipping.
+   725→   725→//
+   726→   726→// Checkout flow:
+   727→   727→//   1. Customer picks "Pengiriman Internal" → select zone
+   728→   728→//   2. System calculates shipping: zone.fee (or 0 if subtotal
+   729→   729→//      >= zone.freeShippingMin)
+   730→   730→//   3. If zone not selected → "Kirim via Gojek" (customer pays
+   731→   731→//      courier directly, system shipping = 0)
+   732→   732→// ============================================================
+   733→   733→
+   734→   734→model DeliveryZone {
+   735→   735→  id              String   @id @default(cuid())
+   736→   736→  /// Display name e.g. "BTP", "Telkomas", "Makassar Pusat"
+   737→   737→  name            String   @unique
+   738→   738→  /// Flat shipping fee in IDR
+   739→   739→  fee             Int      @default(0)
+   740→   740→  /// Minimum subtotal for free shipping. 0 = no free shipping.
+   741→   741→  freeShippingMin Int      @default(0)
+   742→   742→  /// Sort order for dropdown (lower = first)
+   743→   743→  order           Int      @default(0)
+   744→   744→  active          Boolean  @default(true)
+   745→   745→  createdAt       DateTime @default(now())
+   746→   746→  updatedAt       DateTime @updatedAt
+   747→   747→
+   748→   748→  @@index([active])
+   749→   749→}
+   750→   750→model IntegrationConfig {
+   751→   751→  id        String   @id @default(cuid())
+   752→   752→  key       String   @unique
+   753→   753→  value     String
+   754→   754→  isSecret  Boolean  @default(false)
+   755→   755→  updatedAt DateTime @updatedAt
+   756→   756→  createdAt DateTime @default(now())
+   757→   757→}
