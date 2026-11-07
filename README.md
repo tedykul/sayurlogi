@@ -1,7 +1,28 @@
 # SayurLogi 🥬
 
+![Deploy](https://github.com/tedykul/sayurlogi/actions/workflows/deploy-vps.yml/badge.svg)
+[![License: Private](https://img.shields.io/badge/license-private-red.svg)](#license)
+
 Toko online sayur & buah segar — Next.js 16 + Prisma + SQLite.
 Terintegrasi ERPNext untuk inventory + Midtrans untuk payment.
+
+## CI/CD
+
+Auto-deploy ke VPS tiap push ke `main` via GitHub Actions.
+
+| Status | Last Deploy | Commit |
+|---|---|---|
+| ![Deploy](https://github.com/tedykul/sayurlogi/actions/workflows/deploy-vps.yml/badge.svg) | [Lihat history](https://github.com/tedykul/sayurlogi/actions) | `main` branch |
+
+**Setup pertama kali?** Baca [SETUP-CICD.md](./SETUP-CICD.md) (~15 menit, sekali setup).
+
+**Deploy manual di VPS:**
+```bash
+cd ~/sayurlogi
+bash scripts/deploy-vps.sh           # full deploy
+bash scripts/deploy-vps.sh --skip-build  # skip build, hanya restart PM2
+bash scripts/deploy-vps.sh --dry-run     # preview tanpa eksekusi
+```
 
 ## Tech Stack
 
