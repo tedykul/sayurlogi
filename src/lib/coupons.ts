@@ -212,38 +212,54 @@ export async function redeemCoupon(opts: {
   discount: number;
 }): Promise<string | null> {
   try {
-    const result = await db.$transaction(async (tx) => {
-      // Lock-ish: re-read current usedCount inside the transaction.
-      const coupon = await tx.coupon.findUnique({ where: { id: opts.couponId } });
-      if (!coupon) return null;
+    // Interactive transaction timeout raised to 15s (default 5s was
+    // too short for SQLite under concurrent checkout load — the
+    // post-checkout sync + WA + email fan-out can briefly lock the
+    // DB, causing "Transaction already closed" errors at ~5s).
+    const result = await db.$transaction(
+      async (tx) => {
+        // Lock-ish: re-read current usedCount inside the transaction.
+        const coupon = await tx.coupon.findUnique({ where: { id: opts.couponId } });
+        if (!coupon) return null;
 
-      // Enforce maxUsage one more time (race-safe inside tx).
-      if (coupon.maxUsage > 0 && coupon.usedCount >= coupon.maxUsage) {
-        return null;
-      }
+        // Enforce maxUsage one more time (race-safe inside tx).
+        if (coupon.maxUsage > 0 && coupon.usedCount >= coupon.maxUsage) {
+          return null;
+        }
 
-      const usage = await tx.couponUsage.create({
-        data: {
-          couponId: opts.couponId,
-          code: opts.code,
-          orderId: opts.orderId ?? null,
-          email: opts.email ?? null,
-          phone: opts.phone ?? null,
-          userId: opts.userId ?? null,
-          discount: opts.discount,
-        },
-      });
+        const usage = await tx.couponUsage.create({
+          data: {
+            couponId: opts.couponId,
+            code: opts.code,
+            orderId: opts.orderId ?? null,
+            email: opts.email ?? null,
+            phone: opts.phone ?? null,
+            userId: opts.userId ?? null,
+            discount: opts.discount,
+          },
+        });
 
-      await tx.coupon.update({
-        where: { id: opts.couponId },
-        data: { usedCount: { increment: 1 } },
-      });
+        await tx.coupon.update({
+          where: { id: opts.couponId },
+          data: { usedCount: { increment: 1 } },
+        });
 
-      return usage.id;
-    });
+        return usage.id;
+      },
+      { timeout: 15000, maxWait: 20000 }
+    );
     return result;
-  } catch (err) {
-    console.error("[coupons] redeemCoupon failed (non-blocking):", err);
+  } catch (err: any) {
+    // P2034 = transaction closed/expired (Prisma). P2002 = unique
+    // constraint (double-redeem attempt — safe to ignore, order
+    // already succeeded). Both are non-fatal: the order itself is
+    // already created; coupon redemption is best-effort.
+    const code = err?.code as string | undefined;
+    if (code === "P2034" || code === "P2002") {
+      console.warn(`[coupons] redeemCoupon ${code} (non-blocking):`, err.message);
+    } else {
+      console.error("[coupons] redeemCoupon failed (non-blocking):", err);
+    }
     return null;
   }
 }

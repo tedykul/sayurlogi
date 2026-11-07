@@ -211,13 +211,23 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Create Order record in Prisma for tracking
+    //    For Gojek orders, prefix customerNotes with [GOJEK] so admin
+    //    can identify instant-delivery orders at a glance. (Previously
+    //    customerNotes was set twice in this object — the second
+    //    assignment silently overwrote the first, which worked but
+    //    was confusing and triggered no-dupe-keys lint in strict mode.)
+    const gojekPrefix =
+      payload.deliveryMethod === "gojek" && payload.customer.notes
+        ? `[GOJEK] ${payload.customer.notes}`
+        : payload.customer.notes;
+
     const order = await createOrder({
       customerName: payload.customer.name,
       customerEmail: payload.customer.email,
       customerPhone: payload.customer.phone,
       customerAddress: payload.customer.address,
       customerCity: payload.customer.city,
-      customerNotes: payload.customer.notes,
+      customerNotes: gojekPrefix,
       items: payload.items,
       subtotal,
       shipping: finalShipping,
@@ -231,10 +241,6 @@ export async function POST(req: NextRequest) {
       customerId: customerAuth?.customerId,
       deliverySlotId,
       deliverySlotLabel,
-      // Store delivery method + zone info in customerNotes if gojek
-      customerNotes: payload.deliveryMethod === "gojek" && payload.customer.notes
-        ? `[GOJEK] ${payload.customer.notes}`
-        : payload.customer.notes,
     });
 
     // Mark abandoned cart as converted (order completed successfully)
