@@ -40,6 +40,19 @@ interface BannerContent {
   welcomeBannerVersion: string | null;
 }
 
+// Default saat SiteSetting singleton belum ada (fresh install).
+// Form tetap render — POST /api/admin/content upsert, jadi simpan
+// pertama kali akan membuat row singleton.
+const DEFAULT_BANNER: BannerContent = {
+  welcomeBannerEnabled: false,
+  welcomeBannerImage: null,
+  welcomeBannerTitle: null,
+  welcomeBannerDescription: null,
+  welcomeBannerCtaText: null,
+  welcomeBannerCtaLink: null,
+  welcomeBannerVersion: null,
+};
+
 export function WelcomeBannerEditor() {
   const [content, setContent] = useState<BannerContent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,13 +61,15 @@ export function WelcomeBannerEditor() {
 
   useEffect(() => {
     let cancelled = false;
-    adminFetch<{ content: BannerContent }>("/api/admin/content")
+    adminFetch<{ content: BannerContent | null }>("/api/admin/content")
       .then((res) => {
         if (cancelled) return;
-        setContent(res.content);
+        // content bisa null saat singleton belum pernah dibuat.
+        // Fallback ke default supaya form tetap bisa dipakai + disimpan.
+        setContent(res.content ?? DEFAULT_BANNER);
       })
       .catch(() => {
-        if (!cancelled) setContent(null);
+        if (!cancelled) setContent(DEFAULT_BANNER);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

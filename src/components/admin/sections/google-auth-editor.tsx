@@ -27,19 +27,31 @@ interface GoogleAuthContent {
   googleAuthClientId: string | null;
 }
 
+// Default saat SiteSetting singleton belum ada (fresh install).
+// Form tetap render dengan nilai default — POST /api/admin/content
+// melakukan upsert, jadi simpan pertama kali akan membuat row singleton.
+const DEFAULT_CONTENT: GoogleAuthContent = {
+  googleAuthEnabled: false,
+  googleAuthClientId: null,
+};
+
 export function GoogleAuthEditor() {
   const [content, setContent] = useState<GoogleAuthContent | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    adminFetch<{ content: GoogleAuthContent }>("/api/admin/content")
+    adminFetch<{ content: GoogleAuthContent | null }>("/api/admin/content")
       .then((res) => {
         if (cancelled) return;
-        setContent(res.content);
+        // content bisa null saat singleton belum pernah dibuat.
+        // Fallback ke default supaya form tetap bisa dipakai + disimpan.
+        setContent(res.content ?? DEFAULT_CONTENT);
       })
       .catch(() => {
-        if (!cancelled) setContent(null);
+        // Network/auth error → tetap tampilkan form default (bukan
+        // skeleton selamanya). User bisa retry dengan buka ulang tab.
+        if (!cancelled) setContent(DEFAULT_CONTENT);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
