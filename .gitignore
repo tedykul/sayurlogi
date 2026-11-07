@@ -52,3 +52,13 @@ prompt
 server.log
 # Skills directory
 /skills/upload/
+
+# Runtime database — each deployment (sandbox/VPS) keeps its own copy.
+# NEVER commit: overwriting the VPS production DB via git pull = data loss.
+db/*.db
+db/*.db-journal
+
+# Sandbox conversation artifacts (tool transcripts, pasted content, screenshots).
+# Already excluded from the deploy tarball (see src/app/api/deploy/download).
+/tool-results/
+/upload/
