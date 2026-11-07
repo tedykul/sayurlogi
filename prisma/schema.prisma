@@ -101,6 +101,13 @@ model Customer {
   erpCustomerId   String?
   active          Boolean  @default(true)
   lastLoginAt     DateTime?
+  /// Password reset token (SHA-256 hash of the raw token sent to user).
+  /// Null when no reset in progress. Set by /api/customer/forgot-password,
+  /// cleared by /api/customer/reset-password (single-use).
+  resetTokenHash  String?
+  /// When the reset token expires. After this time, the token is invalid
+  /// and user must request a new one. Window: 1 hour from issue.
+  resetTokenExpiresAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

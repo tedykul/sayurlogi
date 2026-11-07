@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { db } from "@/lib/db";
 import {
@@ -440,6 +441,172 @@ function toPublic(row: {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+// ============================================================
+// Password reset — forgot password flow.
+// ============================================================
+// Security model:
+//   1. User requests reset → we generate a random 32-byte token.
+//   2. We hash it with SHA-256 (no salt needed — token is already
+//      high-entropy) and store ONLY the hash in DB. Raw token is
+//      included in the email link, never persisted.
+//   3. User clicks link → frontend sends token to reset-password API.
+//   4. We hash the received token + compare to stored hash. If match
+//      + not expired → update password + clear token (single-use).
+//
+// Expiry: 1 hour (industry standard). Short enough to limit window
+// of abuse, long enough for user to check email.
+//
+// Rate limiting: API layer enforces per-IP rate limit. We also
+// invalidate all previous tokens when a new one is issued for the
+// same email (last-token-wins).
+// ============================================================
+
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+function hashResetToken(rawToken: string): string {
+  return crypto.createHash("sha256").update(rawToken).digest("hex");
+}
+
+function generateRawResetToken(): string {
+  return crypto.randomBytes(RESET_TOKEN_BYTES).toString("hex");
+}
+
+/**
+ * Request a password reset for an email address.
+ * Returns the raw token (to be embedded in the email link) on success.
+ *
+ * Security: always returns success (even if email not found) to
+ * prevent email enumeration attacks. Caller must not leak whether
+ * the email exists. The actual email-sending is the caller's
+ * responsibility (so this function stays pure + testable).
+ *
+ * Behavior:
+ *   - If email exists + customer active + customer has passwordHash
+ *     (i.e., not Google-only): generate new token, store hash, return
+ *     raw token.
+ *   - If email doesn't exist OR customer is Google-only OR inactive:
+ *     return null (caller should still pretend success).
+ *   - Generating a new token invalidates any previous token (last-
+ *     token-wins, simpler UX than multi-token valid).
+ */
+export async function requestPasswordReset(
+  email: string
+): Promise<{ token: string | null; customerId: string | null; customerName: string | null }> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return { token: null, customerId: null, customerName: null };
+  }
+
+  const customer = await db.customer.findUnique({ where: { email: normalizedEmail } });
+
+  // Always return null token for these cases — caller pretends success
+  // to avoid email enumeration:
+  //   - Email not found
+  //   - Customer inactive (banned)
+  //   - Customer is Google-only (no password set — they should use
+  //     Google login, not password reset)
+  if (!customer || !customer.active || !customer.passwordHash) {
+    return { token: null, customerId: null, customerName: null };
+  }
+
+  const rawToken = generateRawResetToken();
+  const tokenHash = hashResetToken(rawToken);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
+
+  await db.customer.update({
+    where: { id: customer.id },
+    data: {
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: expiresAt,
+    },
+  });
+
+  return {
+    token: rawToken,
+    customerId: customer.id,
+    customerName: customer.name,
+  };
+}
+
+/**
+ * Verify a reset token + set new password.
+ * Returns { success: true, customer } on success, throws Error on failure.
+ *
+ * Token is single-use: after success, resetTokenHash + expiresAt
+ * are cleared. Failed verification attempts do NOT clear the token
+ * (so user can retry if they pasted wrong) — but API layer rate
+ * limits attempts to prevent brute force.
+ */
+export async function resetPasswordWithToken(opts: {
+  token: string;
+  newPassword: string;
+}): Promise<{ customer: CustomerPublic }> {
+  const { token, newPassword } = opts;
+
+  if (!token || token.length < 32) {
+    throw new Error("Token reset tidak valid.");
+  }
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("Password minimal 6 karakter.");
+  }
+
+  const tokenHash = hashResetToken(token);
+
+  // Find customer by token hash (not expired)
+  const customer = await db.customer.findFirst({
+    where: {
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: { gt: new Date() },
+      active: true,
+    },
+  });
+
+  if (!customer) {
+    throw new Error("Token reset tidak valid atau sudah kedaluwarsa.");
+  }
+
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+  const updated = await db.customer.update({
+    where: { id: customer.id },
+    data: {
+      passwordHash: newHash,
+      // Single-use: clear token immediately after success
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
+      // Update lastLoginAt as a side signal (not a real login, but
+      // indicates customer activity)
+      lastLoginAt: new Date(),
+    },
+  });
+
+  // Best-effort: invalidate all existing sessions for this customer
+  // so any compromised session is logged out after password reset.
+  await db.session.deleteMany({ where: { customerId: customer.id } }).catch(() => {});
+
+  return { customer: toPublic(updated) };
+}
+
+/**
+ * Check if a reset token is valid (exists + not expired).
+ * Used by the reset password page to verify the link BEFORE showing
+ * the new password form. Returns true if user can proceed.
+ */
+export async function isValidResetToken(token: string): Promise<boolean> {
+  if (!token || token.length < 32) return false;
+  const tokenHash = hashResetToken(token);
+  const count = await db.customer.count({
+    where: {
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: { gt: new Date() },
+      active: true,
+    },
+  });
+  return count > 0;
 }
 
 // ============================================================

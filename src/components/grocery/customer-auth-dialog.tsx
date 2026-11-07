@@ -11,9 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle } from "lucide-react";
+import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useCustomerStore } from "@/lib/store/customer";
 import { GoogleSignInButton } from "./google-signin-button";
+import { ForgotPasswordDialog } from "./forgot-password-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { CustomerPublic } from "@/lib/customer-auth";
@@ -34,6 +35,9 @@ export function CustomerAuthDialog() {
   // Fetch Google Auth config (enabled + clientId) from public API.
   // Only fetch when dialog opens (avoid unnecessary requests).
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  // Forgot password dialog state. Opens when user clicks "Lupa password?".
+  // Closes the auth dialog temporarily + opens forgot password dialog.
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   useEffect(() => {
     if (!authDialogOpen || googleClientId !== null) return;
@@ -54,6 +58,21 @@ export function CustomerAuthDialog() {
     if (!open) closeAuthDialog();
   };
 
+  // Open forgot password dialog (closes auth dialog temporarily).
+  // When forgot dialog closes without success, reopen auth dialog
+  // (so user can try login again or request another reset).
+  const handleForgotOpen = () => {
+    closeAuthDialog();
+    setForgotOpen(true);
+  };
+
+  // When user successfully resets password, set customer (auto-login).
+  const handleForgotSuccess = (customer: CustomerPublic) => {
+    setCustomer(customer);
+    closeAuthDialog();
+    setForgotOpen(false);
+  };
+
   const onSuccess = (customer: CustomerPublic) => {
     setCustomer(customer);
     closeAuthDialog();
@@ -62,59 +81,75 @@ export function CustomerAuthDialog() {
   };
 
   return (
-    <Dialog open={authDialogOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <User className="h-4 w-4" />
-            </div>
-            {tab === "login" ? "Masuk Akun" : "Daftar Akun Baru"}
-          </DialogTitle>
-          <DialogDescription>
-            {tab === "login"
-              ? "Login untuk lacak pesanan & checkout lebih cepat."
-              : "Buat akun untuk menyimpan alamat & riwayat pesanan."}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={authDialogOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <User className="h-4 w-4" />
+              </div>
+              {tab === "login" ? "Masuk Akun" : "Daftar Akun Baru"}
+            </DialogTitle>
+            <DialogDescription>
+              {tab === "login"
+                ? "Login untuk lacak pesanan & checkout lebih cepat."
+                : "Buat akun untuk menyimpan alamat & riwayat pesanan."}
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Tab switcher */}
-        <div className="flex gap-1 rounded-lg bg-secondary p-1">
-          <button
-            onClick={() => setTab("login")}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              tab === "login" ? "bg-background shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            <LogIn className="inline h-3.5 w-3.5 mr-1" />
-            Masuk
-          </button>
-          <button
-            onClick={() => setTab("register")}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              tab === "register" ? "bg-background shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            <UserPlus className="inline h-3.5 w-3.5 mr-1" />
-            Daftar
-          </button>
-        </div>
+          {/* Tab switcher */}
+          <div className="flex gap-1 rounded-lg bg-secondary p-1">
+            <button
+              onClick={() => setTab("login")}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                tab === "login" ? "bg-background shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              <LogIn className="inline h-3.5 w-3.5 mr-1" />
+              Masuk
+            </button>
+            <button
+              onClick={() => setTab("register")}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                tab === "register" ? "bg-background shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              <UserPlus className="inline h-3.5 w-3.5 mr-1" />
+              Daftar
+            </button>
+          </div>
 
-        {tab === "login" ? (
-          <LoginForm
-            onSuccess={onSuccess}
-            onSwitchToRegister={() => setTab("register")}
-            googleClientId={googleClientId}
-          />
-        ) : (
-          <RegisterForm
-            onSuccess={onSuccess}
-            onSwitchToLogin={() => setTab("login")}
-            googleClientId={googleClientId}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+          {tab === "login" ? (
+            <LoginForm
+              onSuccess={onSuccess}
+              onSwitchToRegister={() => setTab("register")}
+              googleClientId={googleClientId}
+              onForgotPassword={handleForgotOpen}
+            />
+          ) : (
+            <RegisterForm
+              onSuccess={onSuccess}
+              onSwitchToLogin={() => setTab("login")}
+              googleClientId={googleClientId}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Forgot password dialog — mounted outside auth dialog so it
+          can open independently after auth dialog closes. */}
+      <ForgotPasswordDialog
+        open={forgotOpen}
+        onOpenChange={setForgotOpen}
+        onSuccess={handleForgotSuccess}
+        onBackToLogin={() => {
+          setForgotOpen(false);
+          // Reopen auth dialog on login tab
+          useCustomerStore.getState().openAuthDialog();
+        }}
+      />
+    </>
   );
 }
 
@@ -126,16 +161,20 @@ function LoginForm({
   onSuccess,
   onSwitchToRegister,
   googleClientId,
+  onForgotPassword,
 }: {
   onSuccess: (c: CustomerPublic) => void;
   onSwitchToRegister: () => void;
   googleClientId: string | null;
+  onForgotPassword?: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [emailWarning, setEmailWarning] = useState("");
+  // Toggle show/hide password — pure UI state, no API impact.
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,17 +257,39 @@ function LoginForm({
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Password</Label>
+          {onForgotPassword && (
+            <button
+              type="button"
+              onClick={onForgotPassword}
+              className="text-xs text-primary transition-colors hover:underline hover:text-primary/80"
+            >
+              Lupa password?
+            </button>
+          )}
+        </div>
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
             placeholder="••••••••"
             disabled={loading}
-            className="pl-9 h-10"
+            className="pl-9 pr-10 h-10"
+            autoComplete="current-password"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground"
+            tabIndex={-1}
+            aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+            aria-pressed={showPassword}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
@@ -272,6 +333,8 @@ function RegisterForm({
   const [error, setError] = useState("");
   const [phoneWarning, setPhoneWarning] = useState("");
   const [emailWarning, setEmailWarning] = useState("");
+  // Toggle show/hide password — pure UI state, no API impact.
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -416,13 +479,24 @@ function RegisterForm({
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={form.password}
             onChange={(e) => { setForm({ ...form, password: e.target.value }); if (error) setError(""); }}
             placeholder="••••••••"
             disabled={loading}
-            className="pl-9 h-10"
+            className="pl-9 pr-10 h-10"
+            autoComplete="new-password"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground"
+            tabIndex={-1}
+            aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+            aria-pressed={showPassword}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
       </div>
       <div className="space-y-1.5">
