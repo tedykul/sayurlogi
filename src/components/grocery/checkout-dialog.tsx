@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, CheckCircle2, Truck, Store, CreditCard, Banknote, Wallet, Package, Ticket, X, Bike, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, Truck, Store, CreditCard, Banknote, Wallet, Package, Ticket, X, Bike, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { useCartStore } from "@/lib/store/cart";
 import { useCustomerStore } from "@/lib/store/customer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +17,6 @@ import { formatIDR } from "@/lib/mock-data";
 import type { CheckoutResponse } from "@/types/grocery";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TrustBadges } from "./trust-badges";
 import { CheckoutSteps } from "./checkout-steps";
 import { DeliveryEstimateDisplay } from "./delivery-estimate";
 import { DeliverySlotPicker } from "./delivery-slot-picker";
@@ -335,6 +335,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                         placeholder="Budi Santoso"
                         required
                         className="h-10"
+                        autoComplete="name"
                       />
                     </Field>
                     <div className="grid grid-cols-2 gap-2.5">
@@ -346,6 +347,8 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                             const raw = e.target.value;
                             if (/[^0-9]/.test(raw)) {
                               setPhoneWarning("Nomor telepon hanya boleh angka");
+                            } else if (raw && raw.length < 8) {
+                              setPhoneWarning("Nomor terlalu pendek (min 8 digit)");
                             } else {
                               setPhoneWarning("");
                             }
@@ -357,6 +360,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                           className={cn("h-10", phoneWarning && "border-amber-500/50 ring-1 ring-amber-500/20")}
                           inputMode="numeric"
                           pattern="[0-9]*"
+                          autoComplete="tel"
                         />
                         {phoneWarning && (
                           <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
@@ -380,6 +384,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                           }}
                           placeholder="budi@email.com"
                           className={cn("h-10", emailWarning && "border-amber-500/50 ring-1 ring-amber-500/20")}
+                          autoComplete="email"
                         />
                         {emailWarning && (
                           <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
@@ -397,6 +402,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                         rows={2}
                         required
                         className="resize-none"
+                        autoComplete="street-address"
                       />
                     </Field>
                     <div className="grid grid-cols-2 gap-2.5">
@@ -406,6 +412,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                           onChange={(e) => setForm({ ...form, city: e.target.value })}
                           placeholder="Jakarta Selatan"
                           className="h-10"
+                          autoComplete="address-level2"
                         />
                       </Field>
                       <Field label="Catatan (opsional)">
@@ -559,6 +566,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                     <RadioCard
                       value="cod"
                       icon={<Banknote className="h-4 w-4" />}
+                      imageSrc="/payments/cod.svg"
                       title="COD"
                       desc="Bayar di tempat"
                       compact
@@ -567,6 +575,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                     <RadioCard
                       value="transfer"
                       icon={<CreditCard className="h-4 w-4" />}
+                      imageSrc="/payments/bca.svg"
                       title="Transfer"
                       desc="BCA, Mandiri"
                       compact
@@ -575,6 +584,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                     <RadioCard
                       value="ewallet"
                       icon={<Wallet className="h-4 w-4" />}
+                      imageSrc="/payments/gopay.svg"
                       title="E-Wallet"
                       desc="GoPay/OVO"
                       compact
@@ -650,17 +660,32 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                   </p>
                 </section>
 
-                {/* ============ Order summary — elevated card ============ */}
+                {/* ============ Order summary — elevated card with product thumbnails ============ */}
                 <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/8 via-primary/5 to-card p-4 ring-1 ring-primary/20 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_-12px_rgba(0,0,0,0.15)]">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-primary" />
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-foreground">Ringkasan Pesanan</h3>
-                  <div className="max-h-32 space-y-1 overflow-y-auto scrollbar-grocery pr-1 mb-2">
+                  <div className="max-h-44 space-y-2 overflow-y-auto scrollbar-grocery pr-1 mb-2">
                     {items.map((item) => (
-                      <div key={item.product.id} className="flex justify-between text-xs text-foreground/70">
-                        <span className="line-clamp-1">
-                          {item.product.emoji} {item.product.name} × {item.quantity}
+                      <div key={item.product.id} className="flex items-center gap-2 text-xs">
+                        {/* Product thumbnail — emoji fallback if no image */}
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary/40">
+                          {item.product.image ? (
+                            <Image
+                              src={item.product.image}
+                              alt={item.product.name}
+                              width={32}
+                              height={32}
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <span className="text-lg">{item.product.emoji}</span>
+                          )}
+                        </div>
+                        <span className="flex-1 line-clamp-1 text-foreground/70">
+                          {item.product.name} × {item.quantity}
                         </span>
-                        <span className="ml-2 shrink-0 font-medium">{formatIDR(item.product.price * item.quantity)}</span>
+                        <span className="shrink-0 font-medium">{formatIDR(item.product.price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
@@ -691,6 +716,15 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
 
               {/* ============ Fixed footer with submit button — always visible ============ */}
               <div className="border-t border-border/60 bg-background/95 backdrop-blur-lg supports-[backdrop-filter]:bg-background/85 p-3 shrink-0 shadow-[0_-2px_8px_-4px_rgba(0,0,0,0.1)] pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                {/* Order total summary — compact row above button */}
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="text-xs text-muted-foreground">
+                    {items.length} item · {deliveryMethod === "pickup" ? "Ambil di toko" : "Antar"}
+                  </span>
+                  <span className="text-base font-bold text-primary tabular-nums">
+                    {formatIDR(grandTotal)}
+                  </span>
+                </div>
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-xl text-base font-bold shadow-md transition-transform hover:scale-[1.01] active:scale-100"
@@ -698,7 +732,6 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                 >
                   Buat Pesanan — {formatIDR(grandTotal)}
                 </Button>
-                <TrustBadges variant="compact" className="pt-2" />
               </div>
             </form>
           </>
@@ -730,6 +763,7 @@ function Field({
 function RadioCard({
   value,
   icon,
+  imageSrc,
   title,
   desc,
   compact,
@@ -737,6 +771,9 @@ function RadioCard({
 }: {
   value: string;
   icon: React.ReactNode;
+  /** Optional branded SVG logo path (e.g. /payments/bca.svg). When
+   *  provided, replaces the generic icon with a branded logo image. */
+  imageSrc?: string;
   title: string;
   desc: string;
   compact?: boolean;
@@ -759,9 +796,23 @@ function RadioCard({
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <RadioGroupItem value={value} id={`r-${value}`} className="sr-only" />
-        <span className={accentText + " shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-background/60 ring-1 ring-border/30 [&>svg]:h-5 [&>svg]:w-5"}>
-          {icon}
-        </span>
+        {imageSrc ? (
+          /* Branded SVG logo (32x22px) — replaces generic icon */
+          <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-background/60 ring-1 ring-border/30">
+            <Image
+              src={imageSrc}
+              alt={title}
+              width={28}
+              height={20}
+              className="h-5 w-auto"
+              unoptimized
+            />
+          </span>
+        ) : (
+          <span className={accentText + " shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-background/60 ring-1 ring-border/30 [&>svg]:h-5 [&>svg]:w-5"}>
+            {icon}
+          </span>
+        )}
         <span className={`font-semibold truncate ${compact ? "text-sm" : "text-base"}`}>{title}</span>
       </div>
       <span className="text-xs text-muted-foreground break-words pl-[42px]">{desc}</span>
