@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requestPasswordReset } from "@/lib/customer-auth";
+import { sendPasswordResetEmail, isSmtpConfigured } from "@/lib/email";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +12,10 @@ export const dynamic = "force-dynamic";
 //
 // Behavior:
 //   - Generate reset token + store hash in DB (1 hour expiry)
-//   - "Send email" with reset link. Email sending is currently
-//     LOG-ONLY (console.log) — production should integrate SMTP
-//     (Nodemailer / Resend / SendGrid). See note below.
+//   - Send reset email via SMTP (if SMTP_HOST configured)
+//     - On success: email terkirim ke user
+//     - On failure OR SMTP not configured: fallback ke ContactMessage
+//       table (admin bisa manual send) + console.log
 //   - Always return success (even if email doesn't exist) to
 //     prevent email enumeration attacks.
 //
@@ -26,10 +28,9 @@ export const dynamic = "force-dynamic";
 //     email sent, but API still returns success — they should use
 //     Google login, not password reset)
 //
-// Production email integration (TODO):
-//   Replace the console.log block with Nodemailer or similar.
-//   Config via env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.
-//   Reset link format: `${process.env.NEXTAUTH_URL}/reset-password?token=${rawToken}`
+// SMTP configuration (.env):
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL,
+//   SMTP_FROM_NAME — see src/lib/email.ts for details.
 // ============================================================
 
 export async function POST(req: NextRequest) {
@@ -53,47 +54,53 @@ export async function POST(req: NextRequest) {
       const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
       const resetUrl = `${baseUrl}/?reset-password=1&token=${result.token}`;
 
-      // ============================================================
-      // EMAIL SENDING (production TODO)
-      // ============================================================
-      // Currently LOG-ONLY. In production, replace with real SMTP.
-      // The reset URL contains the raw token — must be sent via
-      // email, NOT logged in production (would expose the token).
-      //
-      // Example Nodemailer integration:
-      //   import nodemailer from "nodemailer";
-      //   const transporter = nodemailer.createTransport({
-      //     host: process.env.SMTP_HOST,
-      //     port: Number(process.env.SMTP_PORT) || 587,
-      //     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-      //   });
-      //   await transporter.sendMail({
-      //     from: `"SayurLogi" <noreply@sayurlogi.com>`,
-      //     to: email,
-      //     subject: "Reset Password SayurLogi",
-      //     html: `...reset link: ${resetUrl} (berlaku 1 jam)...`,
-      //   });
-      //
-      // For now: store reset link in ContactMessage table (sent-
-      // but-not-emailed queue) for admin to manually send if SMTP
-      // not yet configured. Also log to console in dev.
-      // ============================================================
-      console.log(`[forgot-password] Reset link for ${email}: ${resetUrl}`);
+      // Try to send email via SMTP. If SMTP not configured OR send
+      // fails, fall back to ContactMessage table (admin can manual
+      // send) + console.log (for dev visibility).
+      const smtpReady = isSmtpConfigured();
+      let emailSent = false;
+      let emailError: string | null = null;
 
-      // Best-effort: store in ContactMessage for admin fallback
-      // (so admin can see pending reset requests + manually email
-      // users if SMTP not yet configured)
-      try {
-        await db.contactMessage.create({
-          data: {
-            name: result.customerName || "Customer",
-            email,
-            phone: "-",
-            message: `[PASSWORD RESET REQUEST] Reset URL: ${resetUrl}\n\nThis is an automated message — password reset was requested for this email. URL expires in 1 hour. After reset, this record can be deleted.`,
-          },
+      if (smtpReady) {
+        const sendResult = await sendPasswordResetEmail({
+          to: email,
+          customerName: result.customerName,
+          resetUrl,
         });
-      } catch {
-        // Non-blocking — don't fail the API if ContactMessage fails
+        emailSent = sendResult.success;
+        emailError = sendResult.error || null;
+      }
+
+      if (!emailSent) {
+        // Fallback: log to console (dev visibility) + store in
+        // ContactMessage (admin fallback for manual send).
+        // This is the SAME behavior as before SMTP was added — so
+        // existing deployments without SMTP env vars still work.
+        console.log(
+          `[forgot-password] Reset link for ${email} (SMTP ${smtpReady ? "FAILED" : "not configured"}): ${resetUrl}`
+        );
+        if (emailError) {
+          console.warn(`[forgot-password] SMTP error: ${emailError}`);
+        }
+
+        // Store in ContactMessage for admin fallback (so admin can
+        // see pending reset requests + manually email users if SMTP
+        // not yet configured or SMTP failed).
+        try {
+          await db.contactMessage.create({
+            data: {
+              name: result.customerName || "Customer",
+              email,
+              phone: "-",
+              message: `[PASSWORD RESET REQUEST] Reset URL: ${resetUrl}\n\nThis is an automated message — password reset was requested for this email. URL expires in 1 hour. After reset, this record can be deleted.${smtpReady ? `\n\nSMTP error: ${emailError}` : "\n\nSMTP not configured — admin must manually send this URL to the customer."}`,
+            },
+          });
+        } catch {
+          // Non-blocking — don't fail the API if ContactMessage fails
+        }
+      } else {
+        // Email sent successfully — log for monitoring (no PII).
+        console.log(`[forgot-password] Reset email sent to ${email}`);
       }
     }
 
