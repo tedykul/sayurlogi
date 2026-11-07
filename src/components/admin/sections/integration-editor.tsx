@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Loader2, Save, Plug, CheckCircle2, XCircle, Eye, EyeOff,
   RefreshCw, Link2, KeyRound, Building2, Warehouse, Globe,
-  CreditCard, MessageCircle,
+  CreditCard, MessageCircle, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -401,6 +401,11 @@ export function IntegrationEditor() {
       {/* WhatsApp notification section                                 */}
       {/* ============================================================ */}
       <WaSection />
+
+      {/* ============================================================ */}
+      {/* Email (SMTP) section                                          */}
+      {/* ============================================================ */}
+      <EmailSection />
     </div>
   );
 }
@@ -837,6 +842,309 @@ function WaSection() {
               <p><strong className="text-foreground">Wablas:</strong> Daftar di console.wablas.com. Token dari menu API.</p>
               <p><strong className="text-foreground">Saat nonaktif:</strong> Tidak ada WA dikirim (hemat credit). Status order tetap update di dashboard.</p>
               <p><strong className="text-foreground">Trigger:</strong> Order dibuat, dikonfirmasi, dikirim, selesai.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </AdminCard>
+  );
+}
+
+// ============================================================
+// EmailSection — SMTP email config + enable/disable.
+// ============================================================
+// Supports Gmail/Mailgun/SendGrid/SES/Zoho via generic SMTP.
+// When enabled + host + user + password set, fires on:
+//   - Forgot password (reset link)
+//   - Order confirmation + invoice PDF
+//   - (future) Abandoned cart reminder
+// When disabled, falls back to:
+//   - ContactMessage table (admin manual send)
+//   - Console.log (dev visibility)
+// ============================================================
+
+interface EmailForm {
+  host: string;
+  port: number;
+  user: string;
+  password: string; // returned from DB (plaintext for admin editing)
+  fromName: string;
+  fromEmail: string;
+  enabled: boolean;
+}
+
+function EmailSection() {
+  const [form, setForm] = useState<EmailForm>({
+    host: "",
+    port: 587,
+    user: "",
+    password: "",
+    fromName: "SayurLogi",
+    fromEmail: "",
+    enabled: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    adminFetch<{ success: boolean; email: EmailForm }>(
+      "/api/admin/integration"
+    )
+      .then((res) => {
+        if (cancelled) return;
+        if (res.email) setForm(res.email);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Kirim semua fields. Password hanya dikirim kalau non-empty
+      // (empty = "keep existing" di backend).
+      const body: Record<string, unknown> = {
+        email_host: form.host,
+        email_port: String(form.port),
+        email_user: form.user,
+        email_from_name: form.fromName,
+        email_from_email: form.fromEmail,
+        email_enabled: form.enabled,
+      };
+      if (form.password) {
+        body.email_password = form.password;
+      }
+      await adminFetch("/api/admin/integration", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      toast.success("Konfigurasi Email disimpan");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail.trim())) {
+      toast.error("Isi email valid untuk test");
+      return;
+    }
+    setTesting(true);
+    try {
+      // Save first so test uses latest config
+      const body: Record<string, unknown> = {
+        email_host: form.host,
+        email_port: String(form.port),
+        email_user: form.user,
+        email_from_name: form.fromName,
+        email_from_email: form.fromEmail,
+        email_enabled: form.enabled,
+      };
+      if (form.password) {
+        body.email_password = form.password;
+      }
+      await adminFetch("/api/admin/integration", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const res = await adminFetch<{ success: boolean; message: string }>(
+        "/api/admin/integration/test-smtp",
+        { method: "POST", body: JSON.stringify({ to: testEmail.trim() }) }
+      );
+      if (res.success) {
+        toast.success("Test email terkirim! Cek inbox Anda.");
+      } else {
+        toast.error(res.message || "Test email gagal");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Test email gagal");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const toggleEnabled = async (enabled: boolean) => {
+    setForm({ ...form, enabled });
+    try {
+      await adminFetch("/api/admin/integration", {
+        method: "POST",
+        body: JSON.stringify({ email_enabled: enabled }),
+      });
+      toast.success(enabled ? "Email diaktifkan" : "Email dinonaktifkan");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal toggle");
+      setForm({ ...form, enabled: !enabled });
+    }
+  };
+
+  return (
+    <AdminCard>
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400">
+              <Mail className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                Email (SMTP)
+                {form.enabled && form.host && form.user && form.password ? (
+                  <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-300 text-xs">Aktif</Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
+                )}
+              </h3>
+              <p className="text-[11px] text-muted-foreground">Reset password + invoice PDF + notifikasi email</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Enable</Label>
+            <Switch
+              checked={form.enabled}
+              onCheckedChange={toggleEnabled}
+              disabled={loading}
+              aria-label="Aktifkan Email"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Memuat konfigurasi...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <AdminField label="SMTP Host" required={form.enabled} hint="Server SMTP (mis. smtp.gmail.com, smtp.mailgun.org, smtp.sendgrid.net)">
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={form.host}
+                  onChange={(e) => setForm({ ...form, host: e.target.value })}
+                  placeholder="smtp.gmail.com"
+                  disabled={!form.enabled}
+                  className="pl-9 text-xs"
+                />
+              </div>
+            </AdminField>
+
+            <AdminField label="SMTP Port" hint="587 (STARTTLS, recommended) atau 465 (SSL)">
+              <Input
+                type="number"
+                value={form.port}
+                onChange={(e) => setForm({ ...form, port: parseInt(e.target.value, 10) || 587 })}
+                placeholder="587"
+                disabled={!form.enabled}
+                className="text-xs"
+              />
+            </AdminField>
+
+            <AdminField label="SMTP User" required={form.enabled} hint="Username SMTP (biasanya email pengirim)">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="email"
+                  value={form.user}
+                  onChange={(e) => setForm({ ...form, user: e.target.value })}
+                  placeholder="you@gmail.com atau noreply@sayurlogi.com"
+                  disabled={!form.enabled}
+                  className="pl-9 text-xs"
+                />
+              </div>
+            </AdminField>
+
+            <AdminField label="SMTP Password" required={form.enabled} hint="Password SMTP atau App Password (Gmail 2FA). Disimpan terenkripsi. Kosongkan jika tidak ingin ganti.">
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder={form.password ? "•••••••• (tersimpan, ketik untuk ganti)" : "App Password atau password SMTP"}
+                  disabled={!form.enabled}
+                  className="pl-9 pr-9 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Sembunyikan" : "Tampilkan"}
+                >
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </AdminField>
+
+            <AdminField label="From Name" hint="Nama tampilan di kolom From (mis. SayurLogi)">
+              <Input
+                value={form.fromName}
+                onChange={(e) => setForm({ ...form, fromName: e.target.value })}
+                placeholder="SayurLogi"
+                disabled={!form.enabled}
+                className="text-xs"
+              />
+            </AdminField>
+
+            <AdminField label="From Email" hint="Email pengirim (mis. noreply@sayurlogi.com). Boleh sama dengan SMTP User.">
+              <Input
+                type="email"
+                value={form.fromEmail}
+                onChange={(e) => setForm({ ...form, fromEmail: e.target.value })}
+                placeholder="noreply@sayurlogi.com"
+                disabled={!form.enabled}
+                className="text-xs"
+              />
+            </AdminField>
+
+            <Button onClick={handleSave} disabled={saving} size="sm" className="w-full">
+              {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+              Simpan Konfigurasi Email
+            </Button>
+
+            {/* Test Email */}
+            <div className="rounded-lg border border-border/60 p-2.5 space-y-2">
+              <Label className="text-[11px] font-medium text-muted-foreground">Test kirim email</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="email@anda.com"
+                  disabled={testing || !form.enabled}
+                  className="h-8 text-xs"
+                />
+                <Button
+                  onClick={handleTestEmail}
+                  disabled={testing || !form.enabled}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-xs shrink-0"
+                >
+                  {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3 mr-1" />}
+                  Test
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Simpan config dulu, lalu kirim test ke email Anda untuk verifikasi.
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground space-y-1">
+              <p><strong className="text-foreground">Gmail:</strong> Enable 2FA → generate App Password di myaccount.google.com/apppasswords. Pakai 16-char app password (bukan password biasa).</p>
+              <p><strong className="text-foreground">Mailgun/SendGrid:</strong> Daftar di mailgun.com / sendgrid.com. SMTP credentials dari dashboard.</p>
+              <p><strong className="text-foreground">Amazon SES:</strong> Termurah untuk high volume ($0.10/1000 email). Perlu verify domain + exit sandbox.</p>
+              <p><strong className="text-foreground">Saat nonaktif:</strong> Forgot password fallback ke ContactMessage table (admin manual send).</p>
+              <p><strong className="text-foreground">Keamanan:</strong> Password disimpan terenkripsi (AES-256-CBC) di database. Tidak pernah bocor via API public.</p>
             </div>
           </div>
         )}

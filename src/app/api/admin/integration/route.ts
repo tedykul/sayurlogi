@@ -12,25 +12,30 @@ import {
   ERP_KEYS,
   MIDTRANS_KEYS,
   WA_KEYS,
+  EMAIL_KEYS,
   isConfigured,
 } from "@/lib/integration-config";
+import { getEmailConfig, isEmailEnabled } from "@/lib/email-service";
 import { logAdminAction } from "@/lib/audit";
 
 // ============================================================
 // Integration Config API — manage ERPNext + Midtrans + WhatsApp
-// gateway settings. All editable via admin UI without restart.
+// gateway + Email (SMTP) settings. All editable via admin UI
+// without restart.
 // ============================================================
-// GET  /api/admin/integration         → all 3 configs (secrets
+// GET  /api/admin/integration         → all 4 configs (secrets
 //                                       shown for admin editing)
 // POST /api/admin/integration         → save any subset of keys
 //                                       (only provided keys update;
 //                                       absent keys stay)
 // POST /api/admin/integration/test-connection → ERPNext ping
+// POST /api/admin/integration/test-wa → WA test
+// POST /api/admin/integration/test-smtp → Email test
 // ============================================================
 
 export const dynamic = "force-dynamic";
 
-// GET — return all integration configs (ERPNext + Midtrans + WA)
+// GET — return all integration configs (ERPNext + Midtrans + WA + Email)
 export async function GET() {
   if (!(await verifyAdmin())) {
     return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
@@ -41,6 +46,7 @@ export async function GET() {
     const currentErp = getErpConfig();
     const midtrans = await getMidtransConfig();
     const wa = await getWaConfig();
+    const email = await getEmailConfig();
 
     return NextResponse.json({
       success: true,
@@ -71,6 +77,19 @@ export async function GET() {
         adminPhone: wa.adminPhone,
       },
       isWaEnabled: await isWaEnabled(),
+      // Email (SMTP) — password disimpan terenkripsi di IntegrationConfig,
+      // tapi return plaintext ke admin untuk editing (sama seperti WA api_key
+      // + Midtrans serverKey). Endpoint ini sudah protected via verifyAdmin.
+      email: {
+        host: email.host,
+        port: email.port,
+        user: email.user,
+        password: email.password,
+        fromName: email.fromName,
+        fromEmail: email.fromEmail,
+        enabled: email.enabled,
+      },
+      isEmailEnabled: await isEmailEnabled(),
     });
   } catch (err: any) {
     console.error("[api/admin/integration] GET error:", err);
@@ -79,7 +98,7 @@ export async function GET() {
 }
 
 // POST — save config. Body may include any of ERPNext, Midtrans,
-// or WA keys. Only provided keys are updated; absent keys stay.
+// WA, or Email keys. Only provided keys are updated; absent keys stay.
 export async function POST(req: NextRequest) {
   const auth = await verifyAdmin();
   if (!auth) {
@@ -163,6 +182,45 @@ export async function POST(req: NextRequest) {
       touchedSection = "wa";
     }
 
+    // ===== Email (SMTP) =====
+    // Password disimpan dengan isSecret=true (encrypted AES-256-CBC).
+    // Note: empty string untuk password = "tidak update" (keep existing).
+    // Untuk clear password, kirim null. Ini supaya admin tidak perlu
+    // re-enter password setiap kali save form lain (host/port/user/dll).
+    if (body.email_host !== undefined) {
+      savePromises.push(setConfigValue(EMAIL_KEYS.HOST, String(body.email_host)));
+      touchedSection = "email";
+    }
+    if (body.email_port !== undefined) {
+      const port = parseInt(String(body.email_port), 10);
+      savePromises.push(setConfigValue(EMAIL_KEYS.PORT, String(Number.isFinite(port) ? port : 587)));
+      touchedSection = "email";
+    }
+    if (body.email_user !== undefined) {
+      savePromises.push(setConfigValue(EMAIL_KEYS.USER, String(body.email_user)));
+      touchedSection = "email";
+    }
+    if (body.email_password !== undefined && body.email_password !== null && body.email_password !== "") {
+      // Only update password if non-empty (empty = keep existing).
+      // Caller can send null to clear, but that's rare — usually
+      // they want to KEEP password when editing other fields.
+      savePromises.push(setConfigValue(EMAIL_KEYS.PASSWORD, String(body.email_password), true));
+      touchedSection = "email";
+    }
+    if (body.email_from_name !== undefined) {
+      savePromises.push(setConfigValue(EMAIL_KEYS.FROM_NAME, String(body.email_from_name)));
+      touchedSection = "email";
+    }
+    if (body.email_from_email !== undefined) {
+      savePromises.push(setConfigValue(EMAIL_KEYS.FROM_EMAIL, String(body.email_from_email)));
+      touchedSection = "email";
+    }
+    if (body.email_enabled !== undefined) {
+      const enabled = body.email_enabled === true || body.email_enabled === "true" ? "true" : "false";
+      savePromises.push(setConfigValue(EMAIL_KEYS.ENABLED, enabled));
+      touchedSection = "email";
+    }
+
     if (savePromises.length === 0) {
       return NextResponse.json(
         { success: false, message: "Tidak ada field untuk disimpan." },
@@ -172,7 +230,7 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(savePromises);
 
-    // Refresh ERPNext in-memory cache (Midtrans + WA are read on-demand)
+    // Refresh ERPNext in-memory cache (Midtrans + WA + Email are read on-demand)
     if (touchedSection === "erpnext") {
       await refreshConfig();
     }
@@ -189,6 +247,7 @@ export async function POST(req: NextRequest) {
       isConfigured: isConfigured(),
       isMidtransEnabled: await isMidtransEnabled(),
       isWaEnabled: await isWaEnabled(),
+      isEmailEnabled: await isEmailEnabled(),
     });
   } catch (err: any) {
     console.error("[api/admin/integration] POST error:", err);
