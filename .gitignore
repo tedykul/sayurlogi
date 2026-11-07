@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files/ for more information.
 
 # dependencies
 node_modules
@@ -36,7 +36,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -50,5 +49,19 @@ test
 prompt
 
 server.log
-# Skills directory
-/skills/upload/
+
+# Sandbox AI skill files — not part of the application.
+/skills/
+
+# Runtime database — each deployment (sandbox/VPS) keeps its own copy.
+# NEVER commit: overwriting the VPS production DB via git pull = data loss.
+# Covers the SQLite file plus -journal/-wal/-shm sidecar files and backups.
+/db/
+
+# Sandbox conversation artifacts (tool transcripts, pasted content, screenshots).
+# Already excluded from the deploy tarball (see src/app/api/deploy/download).
+/tool-results/
+/upload/
+
+# Sandbox dev-server runtime state
+.zscripts/dev.pid
