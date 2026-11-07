@@ -510,6 +510,16 @@ export async function ensureCustomer(payload: {
   address: string;
   city: string;
 }): Promise<string> {
+  // Skip entirely if ERPNext is not configured (mock mode). Without
+  // this guard, `new URL("")` in erpUrl() throws "Invalid URL" which
+  // surfaces as a crash on customer register / Google login. The
+  // caller treats this as best-effort (non-blocking), so returning
+  // an empty string is safe — the Customer row in our DB is the
+  // source of truth; erpCustomerId is best-effort.
+  if (!isErpnextConfigured()) {
+    return "";
+  }
+
   // Try to find existing customer by email
   try {
     const url = erpUrl("/api/resource/Contact", {

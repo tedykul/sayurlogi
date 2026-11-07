@@ -35,6 +35,29 @@ export async function POST() {
       });
     }
 
+    // Validate URL shape. A common misconfiguration is entering the
+    // site URL with a trailing "/api" (e.g. "https://erp.example.com/api"),
+    // which causes every downstream call to hit "/api/api/method/..."
+    // and 404. Reject it early with an actionable message instead.
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(config.url);
+    } catch {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        error: `URL ERPNext tidak valid: "${config.url}". Gunakan format https://erp.contoh.com (tanpa path /api).`,
+      });
+    }
+    if (parsedUrl.pathname.replace(/\/+$/, "").endsWith("/api")) {
+      return NextResponse.json({
+        success: false,
+        connected: false,
+        error:
+          'URL ERPNext sebaiknya hanya base domain (contoh: "https://erp.contoh.com"), bukan "https://erp.contoh.com/api". Path /api akan ditambahkan otomatis. Silakan hapus "/api" dari URL.',
+      });
+    }
+
     // Step 1: Ping (no auth needed)
     let pingResult = "failed";
     try {

@@ -92,8 +92,14 @@ export async function saveAbandonedCart(opts: {
 /**
  * Mark abandoned cart as converted (order completed).
  * Called from /api/checkout after order is successfully created.
+ *
+ * Best-effort: never throws. Uses a short transaction timeout so a
+ * locked DB (e.g., during concurrent coupon redemption) doesn't
+ * cascade into a 30s+ socket hang. Failures are logged at warn
+ * level so they're visible but non-fatal.
  */
 export async function markCartConverted(customerPhone: string): Promise<void> {
+  if (!customerPhone) return;
   try {
     await db.abandonedCart.updateMany({
       where: {
@@ -106,7 +112,16 @@ export async function markCartConverted(customerPhone: string): Promise<void> {
       },
     });
   } catch (err: any) {
-    console.warn("[abandoned-cart] markCartConverted error (non-blocking):", err.message);
+    // P2024 = timeout (Prisma). P2034 = transaction closed. Both are
+    // non-fatal here — the cart will be picked up on the next cron
+    // run, or expire after 48h. Don't let this block the checkout
+    // response path.
+    const code = err?.code as string | undefined;
+    if (code === "P2024" || code === "P2034") {
+      console.warn(`[abandoned-cart] markCartConverted ${code} (non-blocking):`, err.message);
+    } else {
+      console.warn("[abandoned-cart] markCartConverted error (non-blocking):", err.message);
+    }
   }
 }
 
