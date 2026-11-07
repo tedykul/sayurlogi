@@ -125,11 +125,19 @@ export function checkStorefrontRateLimit(
 
 /**
  * Map request path to rate limit bucket.
- * Returns bucket name based on URL path.
+ * Returns bucket name based on URL path (+ method for login).
+ *
+ * NOTE: bucket "admin-login" HANYA untuk POST (percobaan login).
+ * GET /api/admin/login dipakai overlay untuk cek status sesi di
+ * SETIAP page load — jika ikut dihitung, admin yang membuka situs
+ * 3x dalam 5 menit akan terkunci 15 menit (terkunci dari dashboard
+ * sendiri padahal bukan brute force).
  */
-export function getBucketForPath(pathname: string): string {
+export function getBucketForPath(pathname: string, method?: string): string {
   // Admin login (separate from other admin routes — brute force protection)
-  if (pathname === "/api/admin/login") return "admin-login";
+  if (pathname === "/api/admin/login") {
+    return method === "GET" ? "admin" : "admin-login";
+  }
 
   // Checkout (critical — prevent spam orders)
   if (pathname === "/api/checkout") return "checkout";

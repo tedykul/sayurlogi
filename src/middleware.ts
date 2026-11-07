@@ -33,8 +33,9 @@ function getClientIp(req: NextRequest): string {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only rate-limit API routes
-  const bucket = getBucketForPath(pathname);
+  // Only rate-limit API routes (pass method so GET status-checks
+  // don't consume the admin-login brute-force bucket)
+  const bucket = getBucketForPath(pathname, req.method);
   if (!bucket) {
     // Non-API route — skip rate limiting
     return NextResponse.next();
