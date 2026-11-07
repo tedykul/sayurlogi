@@ -9,6 +9,8 @@ import {
   readCustomerSessionToken,
   setCustomerSessionCookieOnResponse,
   clearCustomerSessionCookieOnResponse,
+  SESSION_TTL_DAYS,
+  SESSION_REMEMBER_ME_DAYS,
 } from "@/lib/session";
 import { ensureCustomer } from "@/lib/erpnext";
 import { NextResponse } from "next/server";
@@ -149,9 +151,13 @@ export async function registerCustomer(opts: {
 export async function loginCustomer(opts: {
   email: string;
   password: string;
+  /** When true, session TTL extends to 30 days (default 7).
+   *  Used by "Remember me" checkbox on login form. */
+  rememberMe?: boolean;
 }): Promise<{ customer: CustomerPublic; token: string; expiresAt: Date }> {
   const email = opts.email.trim().toLowerCase();
   const password = opts.password;
+  const rememberMe = opts.rememberMe === true;
 
   if (!email || !password) throw new Error("Email dan password wajib diisi.");
 
@@ -170,11 +176,16 @@ export async function loginCustomer(opts: {
     .update({ where: { id: customer.id }, data: { lastLoginAt: new Date() } })
     .catch(() => {});
 
+  // Create session. When "Remember me" is checked, extend TTL from
+  // 7 days → 30 days. This affects BOTH the Session row's expiresAt
+  // AND the cookie's maxAge (cookie maxAge is derived from expiresAt
+  // in customerSessionCookieSet).
   const { token, expiresAt } = await createSession({
     customerId: customer.id,
     email: customer.email,
     role: "customer",
     method: "customer",
+    ttlDays: rememberMe ? SESSION_REMEMBER_ME_DAYS : SESSION_TTL_DAYS,
   });
 
   return {

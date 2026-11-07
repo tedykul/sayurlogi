@@ -19,7 +19,13 @@ import { db } from "@/lib/db";
 
 export const SESSION_COOKIE = "admin_session";
 export const CUSTOMER_SESSION_COOKIE = "customer_session";
-const SESSION_TTL_DAYS = 7;
+// Default session TTL: 7 days. Used when caller doesn't specify
+// a custom expiry (e.g., admin sessions always use this default).
+export const SESSION_TTL_DAYS = 7;
+// "Remember me" session TTL: 30 days. Used when customer checks the
+// "Remember me" checkbox on login — extends session to 30 days so
+// they don't need to re-login on their personal device.
+export const SESSION_REMEMBER_ME_DAYS = 30;
 const TOKEN_BYTES = 32;
 
 export interface SessionCreateResult {
@@ -53,9 +59,13 @@ export async function createSession(opts: {
   email?: string | null;
   role?: string;
   method?: "nextauth" | "password_gate" | "customer" | "google";
+  /** Session TTL in days. Default: 7 days (SESSION_TTL_DAYS).
+   *  Set to 30 for "Remember me" customer sessions. */
+  ttlDays?: number;
 }): Promise<SessionCreateResult> {
   const token = randomBytes(TOKEN_BYTES).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const days = opts.ttlDays ?? SESSION_TTL_DAYS;
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
   await db.session.create({
     data: {

@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useCustomerStore } from "@/lib/store/customer";
 import { GoogleSignInButton } from "./google-signin-button";
@@ -38,6 +39,28 @@ export function CustomerAuthDialog() {
   // Forgot password dialog state. Opens when user clicks "Lupa password?".
   // Closes the auth dialog temporarily + opens forgot password dialog.
   const [forgotOpen, setForgotOpen] = useState(false);
+  // Reset password token from URL (?reset-password=1&token=...).
+  // When set, dialog auto-opens at verify step with token pre-filled.
+  // Parsed from window.location.search on mount.
+  const [resetToken, setResetToken] = useState<string | null>(null);
+
+  // Parse URL for ?reset-password=1&token=... on mount.
+  // When detected, auto-open ForgotPasswordDialog with initialToken.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const isReset = url.searchParams.get("reset-password");
+    const token = url.searchParams.get("token");
+    if (isReset === "1" && token) {
+      setResetToken(token);
+      setForgotOpen(true);
+      // Clean URL: remove ?reset-password + ?token supaya kalau user
+      // refresh page, tidak auto-trigger lagi (UX better).
+      url.searchParams.delete("reset-password");
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   useEffect(() => {
     if (!authDialogOpen || googleClientId !== null) return;
@@ -138,13 +161,18 @@ export function CustomerAuthDialog() {
       </Dialog>
 
       {/* Forgot password dialog — mounted outside auth dialog so it
-          can open independently after auth dialog closes. */}
+          can open independently after auth dialog closes.
+          initialToken: ketika user klik link reset di email, token
+          dari URL (?token=...) dikirim ke sini supaya dialog auto-
+          skip ke step "verify" dengan token pre-filled. */}
       <ForgotPasswordDialog
         open={forgotOpen}
         onOpenChange={setForgotOpen}
+        initialToken={resetToken || undefined}
         onSuccess={handleForgotSuccess}
         onBackToLogin={() => {
           setForgotOpen(false);
+          setResetToken(null); // clear supaya kalau re-open, mulai dari step 1
           // Reopen auth dialog on login tab
           useCustomerStore.getState().openAuthDialog();
         }}
@@ -175,6 +203,9 @@ function LoginForm({
   const [emailWarning, setEmailWarning] = useState("");
   // Toggle show/hide password — pure UI state, no API impact.
   const [showPassword, setShowPassword] = useState(false);
+  // "Remember me" checkbox — when true, session TTL 30 days
+  // instead of default 7 days. Useful for personal devices.
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,7 +219,7 @@ function LoginForm({
       const res = await fetch("/api/customer/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
         credentials: "include",
       });
       const data = await res.json();
@@ -293,6 +324,20 @@ function LoginForm({
         </div>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
+      {/* Remember me checkbox — extends session TTL to 30 days
+          (default 7 days). Useful for personal devices where user
+          doesn't want to re-login every week. */}
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="remember-me"
+          checked={rememberMe}
+          onCheckedChange={(checked) => setRememberMe(checked === true)}
+          className="size-4"
+        />
+        <Label htmlFor="remember-me" className="text-xs cursor-pointer select-none">
+          Ingat saya selama 30 hari
+        </Label>
+      </div>
       <Button type="submit" disabled={loading} className="h-10 w-full">
         {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LogIn className="h-4 w-4 mr-2" />}
         Masuk
