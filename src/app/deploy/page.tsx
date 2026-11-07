@@ -173,14 +173,21 @@ export default function DeployPage() {
 tar -xzf sayurlogi-source-*.tar.gz
 bun install
 bun run db:push
-pm2 restart sayurlogi`}</code></pre>
+bun run build
+pm2 restart sayurlogi erpnext-sync backup-monitor`}</code></pre>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <code>bun run build</code> wajib — PM2 menjalankan production build, tanpa rebuild kode baru tidak aktif.
+                    <code>db:push</code> menambahkan kolom baru (mis. Google Auth) tanpa menghapus data.
+                  </p>
                 </div>
               </li>
               <li className="flex gap-3">
                 <Badge className="shrink-0 h-6 w-6 rounded-full p-0 flex items-center justify-center">4</Badge>
                 <div>
-                  <p className="font-medium">Set password admin baru di VPS</p>
-                  <pre className="mt-1 rounded bg-secondary p-2 text-xs overflow-x-auto"><code>{`ADMIN_PASSWORD='bGwPTUkCTf13myjlLJAzEn7A' bun run scripts/seed-admin.ts`}</code></pre>
+                  <p className="font-medium">(Opsional) Reset password admin di VPS</p>
+                  <p className="text-xs text-muted-foreground">Hanya jika login admin bermasalah. Lewati jika password admin Anda masih berfungsi — menjalankan ini akan MENGGANTI password lama.</p>
+                  <pre className="mt-1 rounded bg-secondary p-2 text-xs overflow-x-auto"><code>{`# generate password baru dulu: openssl rand -base64 24
+ADMIN_PASSWORD='<password-baru-anda>' bun run scripts/seed-admin.ts`}</code></pre>
                 </div>
               </li>
               <li className="flex gap-3">
