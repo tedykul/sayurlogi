@@ -41,8 +41,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js needs inline scripts + eval (especially in dev)
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com",
+      // Next.js needs inline scripts + eval (especially in dev).
+      // maps.googleapis.com  → Google Maps JS SDK (delivery maps)
+      // accounts.google.com  → Google Identity Services (GIS) for
+      //   customer Google Sign-In (script loaded dynamically by
+      //   GoogleSignInButton component).
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://accounts.google.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       // Allow images from self, data URIs, HTTPS (ERPNext + Google Maps)
       "img-src 'self' data: https: blob:",
@@ -50,6 +54,9 @@ const securityHeaders = [
       // Allow fetch/XHR to self + HTTPS (ERPNext, Midtrans, Google Maps)
       "connect-src 'self' https:",
       "media-src 'self' data:",
+      // GIS renders the Sign-In button inside an iframe from
+      // accounts.google.com — must be allowed in frame-src.
+      "frame-src 'self' https://accounts.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
