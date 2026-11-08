@@ -1,6 +1,8 @@
-# Deploy ke Vercel / Railway / Render
+# Deploy ke Vercel / Railway / Render / Cloudflare Tunnel
 
 Panduan cepat deploy SayurLogi ke platform hosting populer. Setelah repo di GitHub, deploy tinggal beberapa klik.
+
+> **🔥 Rekomendasi**: Kalau VPS kamu sudah jalan tapi tidak punya domain publik (cuma IP), pakai **Cloudflare Tunnel** (gratis, 10 menit setup). Lihat [CLOUDFLARE-TUNNEL-SETUP.md](./CLOUDFLARE-TUNNEL-SETUP.md) untuk panduan lengkap.
 
 ---
 
@@ -126,6 +128,7 @@ Free URL: `sayurlogi.onrender.com`. Custom domain butuh paid plan ($7/bulan).
 
 | Provider | Free Tier | SQLite Support | Auto-Deploy | Custom Domain | SSL | Best For |
 |---|---|---|---|---|---|---|
+| **Cloudflare Tunnel** ⭐ | **Gratis selamanya** | ✅ Native | Manual | ✅ Free subdomain `.cfargotunnel.com` | ✅ Auto | VPS yang sudah running, butuh domain publik gratis |
 | **Vercel** | 100GB BW, 100h build | ❌ Ephemeral | ✅ | ✅ Free | ✅ Auto | Next.js production, PR preview |
 | **Railway** | $5 credit trial | ✅ Persistent | ✅ | ✅ $5/mo | ✅ Auto | Full-stack + DB |
 | **Render** | 750h, sleeps | ✅ With disk | ✅ | ✅ $7/mo | ✅ Auto | Simple hosting |
@@ -137,6 +140,7 @@ Free URL: `sayurlogi.onrender.com`. Custom domain butuh paid plan ($7/bulan).
 
 | Scenario | Pakai |
 |---|---|
+| **VPS sudah jalan, butuh domain publik** ⭐ | **Cloudflare Tunnel** (gratis, 10 menit — lihat [CLOUDFLARE-TUNNEL-SETUP.md](./CLOUDFLARE-TUNNEL-SETUP.md)) |
 | **Demo / staging / preview** | Vercel (free, cepat, PR preview) |
 | **Production small traffic** | Railway (Postgres included, $5/mo) |
 | **Production medium traffic** | VPS (PM2 + SQLite/Postgres) — sesuai DEPLOYMENT.md |

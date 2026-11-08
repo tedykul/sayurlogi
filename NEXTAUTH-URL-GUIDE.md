@@ -2,6 +2,8 @@
 
 Panduan lengkap cara konfigurasi `NEXTAUTH_URL` di file `.env` VPS SayurLogi.
 
+> **🔥 Quick win**: Kalau VPS kamu cuma punya IP address (tidak punya domain), Google OAuth akan menolak (Error 400). Solusi tercepat: setup **Cloudflare Tunnel** (gratis, 10 menit) — lihat [CLOUDFLARE-TUNNEL-SETUP.md](./CLOUDFLARE-TUNNEL-SETUP.md). Setelah jalan, VPS akan dapat URL publik `https://sayurlogi.cfargotunnel.com` yang bisa dipakai sebagai `NEXTAUTH_URL`.
+
 ---
 
 ## 📖 Apa itu NEXTAUTH_URL?
