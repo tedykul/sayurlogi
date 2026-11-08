@@ -394,7 +394,10 @@ export function HomeClient({ content }: HomeClientProps) {
       />
 
       {/* Floating UI */}
-      <CartSheet onCheckout={() => setCheckoutOpen(true)} />
+      {/* onCheckout: close cart sheet first to prevent visual overlap
+          (cart drawer was overlapping with checkout dialog, both
+          showing totals + CTAs at the same time — E1 audit bug #1) */}
+      <CartSheet onCheckout={() => { useCartStore.getState().closeCart(); setCheckoutOpen(true); }} />
       <CheckoutDialog
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}

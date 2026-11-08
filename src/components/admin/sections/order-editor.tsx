@@ -370,9 +370,12 @@ export function OrderEditor() {
                               {order.items.map((item, idx) => (
                                 <div key={idx} className="flex justify-between">
                                   <span className="text-muted-foreground">
-                                    {item.product.emoji} {item.product.name} × {item.quantity}
+                                    {/* Defensive: itemsJson may contain malformed
+                                        items (legacy migration, ERPNext sync) —
+                                        access with optional chaining + fallback. */}
+                                    {item?.product?.emoji ?? "📦"} {item?.product?.name ?? "Produk"} × {item.quantity}
                                   </span>
-                                  <span className="font-medium">{formatIDR(item.product.price * item.quantity)}</span>
+                                  <span className="font-medium">{formatIDR((item?.product?.price ?? 0) * item.quantity)}</span>
                                 </div>
                               ))}
                             </div>

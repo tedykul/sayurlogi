@@ -171,7 +171,7 @@ function QtyStepper({
     <div className="flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/5 p-0.5">
       <button
         onClick={onDec}
-        className="flex h-7 w-7 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
         aria-label="Kurangi"
       >
         <Minus className="h-3 w-3" />
@@ -181,7 +181,7 @@ function QtyStepper({
         onClick={onInc}
         disabled={qty >= max}
         className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10",
+          "flex h-9 w-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10",
           qty >= max && "opacity-40 cursor-not-allowed"
         )}
         aria-label="Tambah"

@@ -338,7 +338,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                         autoComplete="name"
                       />
                     </Field>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                       <Field label="No. Telepon" required>
                         <Input
                           type="tel"
@@ -405,7 +405,7 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
                         autoComplete="street-address"
                       />
                     </Field>
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                       <Field label="Kota">
                         <Input
                           value={form.city}

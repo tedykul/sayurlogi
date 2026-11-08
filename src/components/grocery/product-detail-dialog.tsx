@@ -38,6 +38,7 @@ import type { Product, ProductVariant } from "@/types/grocery";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProductImage } from "./product-image";
+import { WishlistButton } from "./wishlist-button";
 
 // ============================================================
 // Swipe thresholds — tuned for grocery detail dialog.
@@ -391,9 +392,19 @@ function ProductDetailContent({
         </div>
 
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0 md:pt-7">
-          <DialogTitle className="text-2xl font-bold leading-tight">
-            {product.name}
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-3">
+            <DialogTitle className="text-2xl font-bold leading-tight flex-1">
+              {product.name}
+            </DialogTitle>
+            {/* Wishlist button — let user wishlist directly from detail
+                dialog (before, only available on product card — E2 audit bug #1). */}
+            <WishlistButton
+              product={product}
+              size="md"
+              variant="inline"
+              className="shrink-0 -mr-2 -mt-1"
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <div className="flex items-center gap-1">
               <div className="flex" aria-label={`Rating ${rating.toFixed(1)} dari 5`}>

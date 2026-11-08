@@ -130,7 +130,7 @@ export function Header({
   const hasAnyTopBarContent = !!(topBarLocation || topBarShipping || phone || topBarBadge);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur-lg supports-[backdrop-filter]:bg-background/70 shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_12px_-4px_rgba(0,0,0,0.08)]">
+    <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur-lg supports-[backdrop-filter]:bg-background/70 shadow-[0_1px_3px_rgba(0,0,0,0.05),0_4px_12px_-4px_rgba(0,0,0,0.08)]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
       {/* ============ Top bar (desktop only) — fully DB-driven, hides when all empty ============ */}
       {hasAnyTopBarContent && (
         <div className="hidden md:block border-b border-border/40 bg-gradient-to-r from-primary/8 via-primary/5 to-primary/8">

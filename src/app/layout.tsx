@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
@@ -73,6 +73,26 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 }
+
+// ============================================================
+// Viewport — viewport-fit=cover WAJIB supaya env(safe-area-inset-*)
+// berfungsi di iOS Safari (notch / Dynamic Island / home indicator).
+// Tanpa ini, semua kode safe-area di BottomNav, StickyCartBar,
+// CartSheet footer, CheckoutDialog footer jadi dead code (env()=0).
+// ============================================================
+// themeColor: supaya status bar iOS match brand (SayurLogi green).
+// Dua varian light/dark sesuai theme user.
+// ============================================================
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#16a34a" },
+    { media: "(prefers-color-scheme: dark)", color: "#052e16" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5, // allow zoom untuk accessibility (jangan disable)
+};
 
 export default function RootLayout({
   children,

@@ -59,7 +59,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
           <div className="border-b border-border/60 bg-gradient-to-r from-orange-500/8 to-amber-500/5 px-5 py-3.5">
             {freeShipping ? (
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
                   <Truck className="h-4 w-4" />
                 </div>
                 <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -151,7 +151,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                           </h4>
                           <button
                             onClick={() => removeItem(item.product.id)}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-95"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-95"
                             aria-label={`Hapus ${item.product.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -166,7 +166,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/40 p-0.5">
                             <button
                               onClick={() => updateQty(item.product.id, item.quantity - 1)}
-                              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 transition-all"
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 transition-all"
                               aria-label="Kurangi"
                             >
                               <Minus className="h-3.5 w-3.5" />
@@ -177,7 +177,7 @@ export function CartSheet({ onCheckout }: CartSheetProps) {
                             <button
                               onClick={() => updateQty(item.product.id, item.quantity + 1)}
                               disabled={item.quantity >= item.product.stock}
-                              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 disabled:opacity-40 disabled:active:scale-100 transition-all"
+                              className="flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 disabled:opacity-40 disabled:active:scale-100 transition-all"
                               aria-label="Tambah"
                             >
                               <Plus className="h-3.5 w-3.5" />
