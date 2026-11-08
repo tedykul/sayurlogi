@@ -685,6 +685,15 @@ model Product {
   order           Int      @default(0)
   /// Last ERPNext sync timestamp (null = never synced)
   erpSyncedAt     DateTime?
+  /// Flag: true when item was deleted/disabled in ERPNext (no longer
+  /// exists in fetchProducts result). Set by syncAllFromErpnext when
+  /// it detects orphan products. Reset to false when item reappears
+  /// in ERPNext (e.g. admin restores disabled item).
+  /// Frontend + admin should filter `deletedFromErp: false` to hide
+  /// these products from all listings. Admin can still see them in
+  /// a "Trash" / "Hidden from ERPNext" view to optionally restore
+  /// (move to a manual-only mode) or permanently delete.
+  deletedFromErp  Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -693,6 +702,7 @@ model Product {
   @@index([category])
   @@index([published])
   @@index([order])
+  @@index([deletedFromErp])
 }
 
 /// Product variants — optional SKU-level child rows.

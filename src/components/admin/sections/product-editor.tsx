@@ -165,13 +165,19 @@ export function ProductEditor() {
   const [syncing, setSyncing] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [page, setPage] = useState(1);
+  // Toggle: include products marked deletedFromErp=true (admin Trash view).
+  // Default false → main list hides items removed from ERPNext.
+  // Toggle on to see + manage (restore/hard-delete) those items.
+  const [showErpDeleted, setShowErpDeleted] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Pass includeErpDeleted=true when admin wants to see Trash items.
+      const qs = showErpDeleted ? "?includeErpDeleted=true" : "";
       const res = await adminFetch<{ success: boolean; products: Product[] }>(
-        "/api/admin/products"
+        `/api/admin/products${qs}`
       );
       setProducts(res.products || []);
     } catch (err: any) {
@@ -180,7 +186,7 @@ export function ProductEditor() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showErpDeleted]);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -537,6 +543,19 @@ export function ProductEditor() {
             <RefreshCw className="h-4 w-4" />
           )}
         </Button>
+
+        {/* Toggle: show items marked deletedFromErp=true (Trash view).
+            Default off → hide items removed from ERPNext.
+            On → show all (including deleted) for restore / hard-delete. */}
+        <Button
+          variant={showErpDeleted ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowErpDeleted((v) => !v)}
+          className="h-9 text-xs"
+          title="Tampilkan produk yang sudah dihapus dari ERPNext (untuk restore atau hard delete)"
+        >
+          {showErpDeleted ? "Tampilkan Semua" : "Lihat Trash ERP"}
+        </Button>
       </div>
 
       {/* Bulk action toolbar */}
@@ -722,6 +741,15 @@ export function ProductEditor() {
                           >
                             {p.published ? "Live" : "Hidden"}
                           </Badge>
+                          {p.deletedFromErp && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                              title="Item ini sudah tidak ada di ERPNext (kemungkinan dihapus/disabled). Tetap di DB untuk restore data. Hide dari storefront otomatis."
+                            >
+                              Dihapus dari ERP
+                            </Badge>
+                          )}
                           {p.organic && (
                             <Badge variant="secondary" className="text-[9px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                               Organic

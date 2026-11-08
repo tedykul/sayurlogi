@@ -20,6 +20,7 @@ export interface SyncResult {
   synced: number;
   total: number;
   unpublished: number;
+  restoredFromErp: number;
   message: string;
   lastSyncAt: Date | null;
 }
@@ -30,10 +31,17 @@ export interface SyncResult {
  *   mock products into DB so admin can edit them.
  * - If ERPNext configured but unreachable → fetchProducts returns
  *   mock data (handled in erpnext.ts).
- * - Auto-unpublish: products in DB that no longer exist in ERPNext
- *   are marked published=false (NOT deleted — admin can re-publish
- *   manually if needed). Only runs when source is genuinely "erpnext"
- *   (not mock fallback), to avoid mass-unpublish on transient outage.
+ * - Auto-mark-deleted: products in DB that no longer exist in ERPNext
+ *   are flagged `deletedFromErp=true` (NOT hard deleted — admin can
+ *   still see in Trash view + restore if item returns to ERPNext).
+ *   Frontend + admin should filter `deletedFromErp: false` to hide
+ *   these from all listings. Only runs when source is genuinely
+ *   "erpnext" (not mock fallback), to avoid mass-delete on transient
+ *   ERPNext outage.
+ * - Auto-restore: products that were previously `deletedFromErp=true`
+ *   but reappear in ERPNext (e.g. admin re-enabled disabled item)
+ *   are reset to `deletedFromErp=false`. Also sets published=true
+ *   so they become visible again on storefront.
  */
 export async function syncAllFromErpnext(): Promise<SyncResult> {
   const configured = isErpnextConfigured();
@@ -44,6 +52,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
   try {
     const { products, source: fetchedSource } = await fetchProducts();
     let synced = 0;
+    let restoredFromErp = 0;
     const syncedItemCodes: string[] = [];
     for (const p of products) {
       if (!p.itemCode) continue;
@@ -76,7 +85,24 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
         emoji: p.emoji || "🛒",
         image: rewrittenImage,
         erpSyncedAt: new Date(),
+        // Reset deletedFromErp flag in case item was previously marked
+        // deleted but now reappears in ERPNext (e.g. admin re-enabled
+        // disabled item). Also re-publish so it's visible on storefront.
+        deletedFromErp: false,
       };
+      // Before upsert, check if product was previously flagged as
+      // deletedFromErp. If so, log it as "restored" so admin gets
+      // feedback that an item came back.
+      const existing = await db.product.findUnique({
+        where: { itemCode: p.itemCode },
+        select: { deletedFromErp: true },
+      });
+      if (existing?.deletedFromErp) {
+        restoredFromErp++;
+        console.log(
+          `[erpnext-sync] Item ${p.itemCode} restored (was deletedFromErp, now back in ERPNext)`
+        );
+      }
       await db.product.upsert({
         where: { itemCode: p.itemCode },
         create: {
@@ -91,9 +117,9 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
       synced++;
     }
 
-    // Auto-unpublish: products in DB that no longer exist in ERPNext.
+    // Auto-mark-deleted: products in DB that no longer exist in ERPNext.
     // Only run when source is genuinely ERPNext (not mock fallback),
-    // to avoid mass-unpublish on transient ERPNext outage.
+    // to avoid mass-delete on transient ERPNext outage.
     let unpublished = 0;
     if (fetchedSource === "erpnext" && syncedItemCodes.length > 0) {
       // Find DB products with erpSyncedAt (sourced from ERPNext before)
@@ -103,17 +129,23 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
           erpSyncedAt: { not: null },
           NOT: { itemCode: { in: syncedItemCodes } },
         },
-        select: { id: true, itemCode: true, published: true },
+        select: { id: true, itemCode: true, published: true, deletedFromErp: true },
       });
-      const toUnpublish = orphans.filter((o) => o.published);
-      if (toUnpublish.length > 0) {
+      // Mark as deletedFromErp. Also set published=false so they
+      // disappear from storefront immediately. Admin can see them
+      // in Trash view (deletedFromErp=true filter).
+      const toMarkDeleted = orphans.filter((o) => !o.deletedFromErp);
+      if (toMarkDeleted.length > 0) {
         await db.product.updateMany({
-          where: { id: { in: toUnpublish.map((o) => o.id) } },
-          data: { published: false },
+          where: { id: { in: toMarkDeleted.map((o) => o.id) } },
+          data: {
+            published: false,
+            deletedFromErp: true,
+          },
         });
-        unpublished = toUnpublish.length;
+        unpublished = toMarkDeleted.length;
         console.log(
-          `[erpnext-sync] Auto-unpublished ${unpublished} orphaned product(s) (no longer in ERPNext): ${toUnpublish
+          `[erpnext-sync] Marked ${unpublished} product(s) as deletedFromErp (no longer in ERPNext): ${toMarkDeleted
             .map((o) => o.itemCode)
             .join(", ")}`
         );
@@ -126,11 +158,14 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
       synced,
       total: products.length,
       unpublished,
+      restoredFromErp,
       message:
         synced > 0
           ? `${synced} produk tersinkron dari ${
               fetchedSource === "erpnext" ? "ERPNext" : "mock data"
-            }${unpublished > 0 ? ` (${unpublished} di-unpublish)` : ""}`
+            }${unpublished > 0 ? ` (${unpublished} ditandai hapus dari ERPNext)` : ""}${
+              restoredFromErp > 0 ? ` (${restoredFromErp} dipulihkan)` : ""
+            }`
           : "Tidak ada produk untuk disinkron",
       lastSyncAt: new Date(),
     };
@@ -142,6 +177,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
       synced: 0,
       total: 0,
       unpublished: 0,
+      restoredFromErp: 0,
       message: `Sync gagal: ${err instanceof Error ? err.message : "unknown error"}`,
       lastSyncAt: null,
     };

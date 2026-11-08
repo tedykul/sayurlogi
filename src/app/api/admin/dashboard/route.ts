@@ -302,9 +302,12 @@ export async function GET() {
     }));
 
     // === Low stock products (stock < 10) ===
+    // Filter deletedFromErp=false — exclude items removed from ERPNext
+    // (they're not actively sellable, so shouldn't show in low-stock alerts).
     const lowStockRaw = await db.product.findMany({
       where: {
         published: true,
+        deletedFromErp: false,
         stock: { lt: 10 },
       },
       orderBy: { stock: "asc" },
@@ -326,8 +329,9 @@ export async function GET() {
 
     // === Phase 2: Product dashboard stats ===
     // Stock per category (for stacked bar chart)
+    // Filter deletedFromErp=false (same logic as low-stock above).
     const allProductsForStock = await db.product.findMany({
-      where: { published: true },
+      where: { published: true, deletedFromErp: false },
       select: { category: true, stock: true, price: true },
     });
     const stockByCategoryMap: Record<string, { stock: number; productCount: number; value: number }> = {};

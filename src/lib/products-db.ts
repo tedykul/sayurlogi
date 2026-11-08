@@ -52,6 +52,7 @@ interface ProductRowLike {
   origin: string | null;
   published: boolean;
   order: number;
+  deletedFromErp?: boolean;
   erpSyncedAt: Date | null;
   variants?: Array<{
     id: string;
@@ -70,6 +71,7 @@ export function serializeProduct(
 ): GroceryProduct & {
   published: boolean;
   order: number;
+  deletedFromErp?: boolean;
   longDescription?: string;
   benefits?: string[];
   storageTip?: string;
@@ -107,6 +109,7 @@ export function serializeProduct(
     // admin-only extensions
     published: row.published,
     order: row.order,
+    deletedFromErp: row.deletedFromErp ?? false,
     variants: (row.variants || []).map((v) => ({
       id: v.id,
       name: v.name,
@@ -125,9 +128,13 @@ export async function getPublishedProducts(
   category?: string
 ): Promise<{ products: GroceryProduct[]; source: "db" | "mock" }> {
   try {
+    // Filter published=true AND deletedFromErp=false (hide items that
+    // were deleted/disabled in ERPNext). Items still exist in DB but
+    // are hidden from storefront.
     const rows = await db.product.findMany({
       where: {
         published: true,
+        deletedFromErp: false,
         ...(category ? { category } : {}),
       },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
@@ -150,11 +157,32 @@ export async function getPublishedProducts(
   }
 }
 
-/** Get all products (admin) — includes unpublished. */
-export async function getAllProducts() {
+/** Get all products (admin) — includes unpublished. By default,
+ * excludes products marked deletedFromErp=true (hidden from ERPNext
+ * since last sync). Pass includeErpDeleted=true to also return those
+ * (for "Trash" view in admin).
+ */
+export async function getAllProducts(options?: { includeErpDeleted?: boolean }) {
   const rows = await db.product.findMany({
+    where: options?.includeErpDeleted ? undefined : { deletedFromErp: false },
     orderBy: [{ order: "asc" }, { createdAt: "desc" }],
     include: { variants: { orderBy: { createdAt: "asc" } } },
+  });
+  return rows.map(serializeProduct);
+}
+
+/** Get products marked as deletedFromErp=true (admin "Trash" view).
+ * These are items that no longer exist in ERPNext but still in DB
+ * (preserved for restore / data retention). Admin can either:
+ *   - Restore (re-publish manually, deletedFromErp stays true until
+ *     next sync detects item back in ERPNext)
+ *   - Hard delete permanently
+ */
+export async function getErpDeletedProducts() {
+  const rows = await db.product.findMany({
+    where: { deletedFromErp: true },
+    orderBy: [{ updatedAt: "desc" }],
+    include: { variants: true },
   });
   return rows.map(serializeProduct);
 }
@@ -163,18 +191,22 @@ export async function getAllProducts() {
 export async function getProductsPaginated(options: {
   page?: number;
   limit?: number;
+  includeErpDeleted?: boolean;
 } = {}): Promise<{ products: ReturnType<typeof serializeProduct>[]; total: number }> {
-  const { page = 1, limit = 10 } = options;
+  const { page = 1, limit = 10, includeErpDeleted = false } = options;
   const skip = (page - 1) * limit;
+
+  const where = includeErpDeleted ? undefined : { deletedFromErp: false };
 
   const [rows, total] = await Promise.all([
     db.product.findMany({
+      where,
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       include: { variants: { orderBy: { createdAt: "asc" } } },
       take: limit,
       skip,
     }),
-    db.product.count(),
+    db.product.count({ where }),
   ]);
 
   return {

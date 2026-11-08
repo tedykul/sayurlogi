@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 //   page  — page number (1-based, default: 1)
 //   limit — items per page (default: 10)
 //   no pagination if neither page nor limit is provided (returns all)
+//   includeErpDeleted — "true" to also include items marked deletedFromErp
+//     (default: false — hide deleted-from-ERPNext items from main list)
 export async function GET(req: NextRequest) {
   const auth = await requirePermission("products:read");
   if (!isAuthResult(auth)) return auth; // 401/403 NextResponse
@@ -18,10 +20,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
+    const includeErpDeleted = searchParams.get("includeErpDeleted") === "true";
 
     // Backward compatible: if no page/limit params, return all
     if (!pageParam && !limitParam) {
-      const products = await getAllProducts();
+      const products = await getAllProducts({ includeErpDeleted });
       return NextResponse.json({ success: true, products, total: products.length });
     }
 
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(pageParam || "1", 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitParam || "10", 10) || 10));
 
-    const { products, total } = await getProductsPaginated({ page, limit });
+    const { products, total } = await getProductsPaginated({ page, limit, includeErpDeleted });
     const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({

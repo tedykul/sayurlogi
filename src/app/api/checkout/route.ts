@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
     const cartItemCodes = payload.items.map((i) => i.product.itemCode).filter(Boolean);
     const validProducts = cartItemCodes.length > 0
       ? await db.product.findMany({
-          where: { itemCode: { in: cartItemCodes }, published: true },
+          // Filter published + NOT deletedFromErp — block checkout of
+          // items that were removed from ERPNext (deletedFromErp=true).
+          where: { itemCode: { in: cartItemCodes }, published: true, deletedFromErp: false },
           select: { itemCode: true, price: true, name: true },
         })
       : [];
