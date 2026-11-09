@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Loader2, Save, Plug, CheckCircle2, XCircle, Eye, EyeOff,
   RefreshCw, Link2, KeyRound, Building2, Warehouse, Globe,
-  CreditCard, MessageCircle, Mail,
+  CreditCard, MessageCircle, Mail, Stethoscope, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,21 @@ export function IntegrationEditor() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  // Image-access diagnostic state (Phase: ERPNext private-files 403 fix).
+  // Runs 3 probes (auth, File doctype permission, direct private-file fetch)
+  // and surfaces a diagnosis + actionable recommendation to the admin.
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagResult, setDiagResult] = useState<{
+    severity: "ok" | "warning" | "error";
+    diagnosis: string;
+    recommendation: string;
+    testImagePath: string | null;
+    probes: {
+      auth: { status: number | null; durationMs: number; bodySnippet: string };
+      filePermission: { status: number | null; durationMs: number; bodySnippet: string };
+      privateFile: { status: number | null; durationMs: number; bodySnippet: string } | null;
+    };
+  } | null>(null);
 
   // Form state
   const [form, setForm] = useState<IntegrationConfig>({
@@ -156,6 +171,77 @@ export function IntegrationEditor() {
     }
   }
 
+  // ============================================================
+  // handleDiagnose — root-cause the ERPNext private-files 403.
+  // ============================================================
+  // Saves config first (so diagnostic uses latest values),
+  // then hits the /api/admin/erpnext/image-diagnostic endpoint
+  // which runs 3 probes:
+  //   1. Auth validity (is the token itself valid?)
+  //   2. File doctype read permission (can the API user list Files?)
+  //   3. Direct private-file fetch (the actual storefront path)
+  // Surfaces a precise diagnosis + actionable recommendation
+  // (e.g. "add File Manager role to API key user in ERPNext").
+  // ============================================================
+  async function handleDiagnose() {
+    setDiagnosing(true);
+    setDiagResult(null);
+    try {
+      // Save first (so diagnostic uses latest config)
+      await adminFetch("/api/admin/integration", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+
+      const res = await adminFetch<{
+        success: boolean;
+        configured: boolean;
+        message?: string;
+        severity: "ok" | "warning" | "error";
+        diagnosis: string;
+        recommendation: string;
+        testImagePath: string | null;
+        probes: {
+          auth: { status: number | null; statusText: string; durationMs: number; bodySnippet: string };
+          filePermission: { status: number | null; statusText: string; durationMs: number; bodySnippet: string };
+          privateFile: { status: number | null; statusText: string; durationMs: number; bodySnippet: string } | null;
+        };
+      }>("/api/admin/erpnext/image-diagnostic", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      if (!res.configured) {
+        toast.error(res.message || "ERPNext belum dikonfigurasi");
+        return;
+      }
+
+      setDiagResult({
+        severity: res.severity,
+        diagnosis: res.diagnosis,
+        recommendation: res.recommendation,
+        testImagePath: res.testImagePath,
+        probes: {
+          auth: res.probes.auth,
+          filePermission: res.probes.filePermission,
+          privateFile: res.probes.privateFile,
+        },
+      });
+
+      if (res.severity === "ok") {
+        toast.success("Akses private file normal");
+      } else if (res.severity === "warning") {
+        toast.warning("Diagnosa selesai — lihat rekomendasi");
+      } else {
+        toast.error("Root cause ditemukan — lihat rekomendasi");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Diagnosa gagal");
+    } finally {
+      setDiagnosing(false);
+    }
+  }
+
   const set = (field: keyof IntegrationConfig, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -228,6 +314,114 @@ export function IntegrationEditor() {
             )}
             <span className="ml-1">Test Connection</span>
           </Button>
+        </div>
+      </AdminCard>
+
+      {/* ============================================================ */}
+      {/* Image Access Diagnostic                                      */}
+      {/* ============================================================ */}
+      {/* Root-causes the ERPNext private-files 403 issue. When product */}
+      {/* images stored as private files in ERPNext fail to load, the   */}
+      {/* storefront proxy silently returns a 1×1 placeholder PNG —     */}
+      {/* visually OK but hides the problem. This card runs 3 probes    */}
+      {/* (auth validity, File doctype read permission, direct private- */}
+      {/* file fetch) and surfaces the precise diagnosis + the exact    */}
+      {/* ERPNext role/permission fix to apply.                        */}
+      {/* ============================================================ */}
+      <AdminCard>
+        <div className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                diagResult?.severity === "ok"
+                  ? "bg-emerald-500/20"
+                  : diagResult?.severity === "error"
+                  ? "bg-rose-500/20"
+                  : diagResult?.severity === "warning"
+                  ? "bg-amber-500/20"
+                  : "bg-muted"
+              )}>
+                {diagResult?.severity === "ok" ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                ) : diagResult?.severity === "error" ? (
+                  <XCircle className="h-5 w-5 text-rose-600" />
+                ) : diagResult?.severity === "warning" ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                ) : (
+                  <Stethoscope className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Akses File Private</p>
+                <p className="text-xs text-muted-foreground">
+                  Diagnosa 403 pada gambar produk dari ERPNext private files
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDiagnose}
+              disabled={diagnosing}
+              className="h-9 shrink-0"
+            >
+              {diagnosing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Stethoscope className="h-4 w-4" />
+              )}
+              <span className="ml-1">Diagnosa</span>
+            </Button>
+          </div>
+
+          {/* Diagnostic result */}
+          {diagResult && (
+            <div className="space-y-3 border-t border-border pt-3">
+              {/* Diagnosis label */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant={diagResult.severity === "ok" ? "default" : "secondary"}
+                  className={cn(
+                    "text-xs",
+                    diagResult.severity === "ok" && "bg-emerald-600 text-white",
+                    diagResult.severity === "error" && "bg-rose-600 text-white",
+                    diagResult.severity === "warning" && "bg-amber-500 text-white"
+                  )}
+                >
+                  {diagResult.diagnosis.replace(/_/g, " ")}
+                </Badge>
+                {diagResult.testImagePath && (
+                  <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {diagResult.testImagePath}
+                  </code>
+                )}
+              </div>
+
+              {/* Recommendation (actionable steps for admin) */}
+              <div className={cn(
+                "rounded-lg border p-3 text-xs whitespace-pre-line",
+                diagResult.severity === "ok"
+                  ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40"
+                  : diagResult.severity === "error"
+                  ? "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40"
+                  : "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
+              )}>
+                <p className="font-semibold mb-1">Rekomendasi:</p>
+                <p className="text-muted-foreground">{diagResult.recommendation}</p>
+              </div>
+
+              {/* Probe results (for debugging) */}
+              <div className="space-y-1.5 text-xs">
+                <p className="font-semibold text-muted-foreground">Hasil Probe:</p>
+                <ProbeRow label="Auth (token valid?)" probe={diagResult.probes.auth} />
+                <ProbeRow label="File doctype (read permission)" probe={diagResult.probes.filePermission} />
+                {diagResult.probes.privateFile && (
+                  <ProbeRow label="Private file fetch (storefront path)" probe={diagResult.probes.privateFile} />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </AdminCard>
 
@@ -1152,5 +1346,51 @@ function EmailSection() {
         )}
       </div>
     </AdminCard>
+  );
+}
+
+// ============================================================
+// ProbeRow — compact one-line display of a probe result.
+// Used by the image-access diagnostic card to show HTTP status
+// + duration for each of the 3 probes (auth / File permission /
+// private file). Collapsible body snippet for deeper inspection.
+// ============================================================
+function ProbeRow({
+  label,
+  probe,
+}: {
+  label: string;
+  probe: { status: number | null; statusText: string; durationMs: number; bodySnippet: string };
+}) {
+  const ok = probe.status !== null && probe.status >= 200 && probe.status < 300;
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-md border border-border bg-card/50">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left"
+        aria-expanded={expanded}
+      >
+        <span
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white",
+            ok ? "bg-emerald-500" : probe.status === null ? "bg-slate-400" : "bg-rose-500"
+          )}
+        >
+          {ok ? "✓" : probe.status === null ? "?" : "✗"}
+        </span>
+        <span className="flex-1 truncate text-muted-foreground">{label}</span>
+        <code className="shrink-0 font-mono text-[11px]">
+          {probe.status === null ? probe.statusText : `HTTP ${probe.status}`}
+          <span className="text-muted-foreground/60"> · {probe.durationMs}ms</span>
+        </code>
+      </button>
+      {expanded && probe.bodySnippet && (
+        <pre className="max-h-32 overflow-auto border-t border-border bg-muted/40 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-all">
+          {probe.bodySnippet}
+        </pre>
+      )}
+    </div>
   );
 }

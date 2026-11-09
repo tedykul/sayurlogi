@@ -100,18 +100,26 @@ export async function GET(
   // ============================================================
   // Determine the correct ERPNext URL based on path.
   // ============================================================
+  // Each segment is encodeURIComponent'd then joined with "/".
+  // ERPNext filenames frequently contain spaces, parentheses, and
+  // unicode (e.g. "Apple Fuji.jpg", "Bayam (1).png") — without
+  // encoding, fetch() builds a malformed URL and ERPNext returns
+  // 404 / 400. encodeURIComponent on each segment (not the whole
+  // path) preserves the "/" separators.
+  const encodeSeg = (s: string) => encodeURIComponent(s);
+
   let erpUrl: string;
 
   // Reconstruct the path as ERPNext expects it
   if (segments[0] === "private" && segments[1] === "files") {
     // Private file: /private/files/xxx.jpg
-    erpUrl = `${erpBaseUrl}/private/files/${segments.slice(2).join("/")}`;
+    erpUrl = `${erpBaseUrl}/private/files/${segments.slice(2).map(encodeSeg).join("/")}`;
   } else if (segments[0] === "files") {
     // Public file: /files/xxx.jpg
-    erpUrl = `${erpBaseUrl}/files/${segments.slice(1).join("/")}`;
+    erpUrl = `${erpBaseUrl}/files/${segments.slice(1).map(encodeSeg).join("/")}`;
   } else {
     // Fallback: treat as public file directly
-    erpUrl = `${erpBaseUrl}/files/${imagePath}`;
+    erpUrl = `${erpBaseUrl}/files/${segments.map(encodeSeg).join("/")}`;
   }
 
   // ============================================================
@@ -154,20 +162,36 @@ export async function GET(
       // Cache negative result (4xx/5xx) to prevent re-fetching
       NEGATIVE_CACHE.set(erpUrl, { status: res.status, timestamp: Date.now() });
 
+      // Capture ERPNext's error body (first 500 chars) so admin can
+      // see the ACTUAL reason (permission denied / not found / etc).
+      // Frappe's 403 typically returns HTML with a human message or
+      // plain text "Forbidden"; capturing it turns a vague "403"
+      // into an actionable diagnosis.
+      let errorBody = "";
+      try {
+        errorBody = (await res.text()).slice(0, 500);
+      } catch {
+        // body already consumed or not readable
+      }
+
       // Log only once per URL per hour (avoid disk spam)
       if (shouldLog(erpUrl)) {
         console.error(
           `[erp-image] fetch failed: ${res.status} for ${erpUrl}` +
             (res.status === 403
-              ? " (API key/secret mungkin tidak punya permission baca private files, atau file tidak ada)"
+              ? " (Frappe permission check failed — API key user lacks 'File: read' role permission. Fix: ERPNext → User List → API key user → add 'File Manager' role OR add File:read to user's role via Role Permissions Manager)"
               : res.status === 404
                 ? " (file tidak ada di ERPNext — kemungkinan sudah dihapus)"
-                : "")
+                : "") +
+            (errorBody ? ` | body: ${errorBody.replace(/\s+/g, " ").slice(0, 200)}` : "")
         );
       }
 
       // Return placeholder image (200 OK) so browser doesn't retry
       // aggressively. Browser caches for 5 min via Cache-Control.
+      // X-ERP-Image-Error-Body lets admin inspect the actual Frappe
+      // error via devtools Network tab (without re-running the
+      // request from the diagnostic endpoint).
       return new NextResponse(PLACEHOLDER_PNG, {
         status: 200,
         headers: {
@@ -175,6 +199,11 @@ export async function GET(
           "Cache-Control": "public, max-age=300", // 5 min
           "X-Content-Type-Options": "nosniff",
           "X-ERP-Image-Status": `error-${res.status}`,
+          // Sanitize body for header (strip newlines, limit length).
+          // HTTP headers can't contain \r\n — collapse whitespace.
+          ...(errorBody
+            ? { "X-ERP-Image-Error-Body": errorBody.replace(/[\r\n]+/g, " ").slice(0, 300) }
+            : {}),
         },
       });
     }
