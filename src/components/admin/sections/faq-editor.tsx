@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminFetch } from "@/lib/admin-client";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   AdminSectionHeading,
   AdminField,
@@ -31,6 +32,8 @@ export function FaqEditor() {
   const { data: faqs, loading, refetch } = useAdminFetch<FaqItem[]>("/api/admin/faqs");
   const [editing, setEditing] = useState<FaqItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const handleReorder = async (faq: FaqItem, direction: "up" | "down") => {
     if (!faqs) return;
@@ -52,6 +55,57 @@ export function FaqEditor() {
     } catch (err: any) {
       toast.error(err.message);
     }
+  };
+
+  // Drag-and-drop reorder (Phase 2): drag one FAQ onto another to
+  // swap their order fields. Same API path as the button version —
+  // just a different trigger. ChevronUp/Down buttons remain as the
+  // accessible alternative (keyboard / screen reader users).
+  const handleDragStart = (e: React.DragEvent, faq: FaqItem) => {
+    setDraggingId(faq.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", faq.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, faq: FaqItem) => {
+    if (draggingId && draggingId !== faq.id) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDropTargetId(faq.id);
+    }
+  };
+
+  const handleDragLeave = (faq: FaqItem) => {
+    if (dropTargetId === faq.id) setDropTargetId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, target: FaqItem) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    setDraggingId(null);
+    setDropTargetId(null);
+    if (!draggedId || draggedId === target.id || !faqs) return;
+    const dragged = faqs.find((f) => f.id === draggedId);
+    if (!dragged) return;
+    try {
+      await adminFetch(`/api/admin/faqs/${dragged.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ order: target.order }),
+      });
+      await adminFetch(`/api/admin/faqs/${target.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ order: dragged.order }),
+      });
+      refetch();
+      toast.success("Urutan diubah");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDropTargetId(null);
   };
 
   const handleTogglePublish = async (faq: FaqItem) => {
@@ -146,7 +200,13 @@ export function FaqEditor() {
                     onCancel={() => setEditing(null)}
                   />
                 ) : (
-                  <AdminCard className="flex items-start gap-3">
+                  <AdminCard
+                    className={cn(
+                      "flex items-start gap-3 transition-all",
+                      draggingId === faq.id && "opacity-40 scale-[0.98]",
+                      dropTargetId === faq.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                    )}
+                  >
                     <div className="flex flex-col gap-0.5 shrink-0">
                       <button
                         onClick={() => handleReorder(faq, "up")}
@@ -156,7 +216,17 @@ export function FaqEditor() {
                       >
                         <ChevronUp className="h-4 w-4" />
                       </button>
-                      <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, faq)}
+                        onDragEnd={handleDragEnd}
+                        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+                        aria-label="Seret untuk mengurutkan ulang"
+                        title="Seret untuk mengurutkan ulang"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => handleReorder(faq, "down")}
                         disabled={i === (faqs.length - 1)}
@@ -166,7 +236,12 @@ export function FaqEditor() {
                         <ChevronDown className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className="flex-1 min-w-0"
+                      onDragOver={(e) => handleDragOver(e, faq)}
+                      onDragLeave={() => handleDragLeave(faq)}
+                      onDrop={(e) => handleDrop(e, faq)}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="text-sm font-semibold leading-tight">{faq.question}</h3>
                         <Badge variant={faq.published ? "default" : "secondary"} className="shrink-0 text-xs">

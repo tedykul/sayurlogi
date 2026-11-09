@@ -170,8 +170,9 @@ export function OrderEditor() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/* Filters — sticky to top of scroll container so they stay
+          visible while paging through long order lists. */}
+      <div className="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 flex flex-wrap gap-2">
         <Select value={filterStatus} onValueChange={handleFilterChange}>
           <SelectTrigger className="w-[180px] h-9 rounded-lg text-xs">
             <Filter className="h-3.5 w-3.5 mr-1" />

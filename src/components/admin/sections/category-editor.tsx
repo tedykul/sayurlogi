@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, ChevronUp, ChevronDown, Eye, EyeOff, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +45,8 @@ export function CategoryEditor() {
   const { data: items, loading, refetch } = useAdminFetch<Category[]>("/api/admin/categories");
   const [editing, setEditing] = useState<Category | null>(null);
   const [creating, setCreating] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const handleReorder = async (item: Category, direction: "up" | "down") => {
     if (!items) return;
@@ -59,6 +61,50 @@ export function CategoryEditor() {
     } catch (err: any) {
       toast.error(err.message);
     }
+  };
+
+  // Drag-and-drop reorder (Phase 2): drag one category onto another
+  // to swap their order fields. Same API as the button version.
+  // ChevronUp/Down remain as the accessible alternative.
+  const handleDragStart = (e: React.DragEvent, item: Category) => {
+    setDraggingId(item.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", item.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, item: Category) => {
+    if (draggingId && draggingId !== item.id) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setDropTargetId(item.id);
+    }
+  };
+
+  const handleDragLeave = (item: Category) => {
+    if (dropTargetId === item.id) setDropTargetId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, target: Category) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    setDraggingId(null);
+    setDropTargetId(null);
+    if (!draggedId || draggedId === target.id || !items) return;
+    const dragged = items.find((i) => i.id === draggedId);
+    if (!dragged) return;
+    try {
+      await adminFetch(`/api/admin/categories/${dragged.id}`, { method: "PUT", body: JSON.stringify({ order: target.order }) });
+      await adminFetch(`/api/admin/categories/${target.id}`, { method: "PUT", body: JSON.stringify({ order: dragged.order }) });
+      refetch();
+      toast.success("Urutan diubah");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDropTargetId(null);
   };
 
   const handleTogglePublish = async (item: Category) => {
@@ -139,16 +185,38 @@ export function CategoryEditor() {
                     onCancel={() => setEditing(null)}
                   />
                 ) : (
-                  <AdminCard className="flex items-center gap-3">
+                  <AdminCard
+                    className={cn(
+                      "flex items-center gap-3 transition-all",
+                      draggingId === item.id && "opacity-40 scale-[0.98]",
+                      dropTargetId === item.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                    )}
+                  >
                     <div className="flex flex-col shrink-0">
                       <button onClick={() => handleReorder(item, "up")} disabled={i === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Naik">
                         <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, item)}
+                        onDragEnd={handleDragEnd}
+                        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+                        aria-label="Seret untuk mengurutkan ulang"
+                        title="Seret untuk mengurutkan ulang"
+                      >
+                        <GripVertical className="h-4 w-4" />
                       </button>
                       <button onClick={() => handleReorder(item, "down")} disabled={i === items.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Turun">
                         <ChevronDown className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-lg", item.gradient)}>
+                    <div
+                      className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-lg", item.gradient)}
+                      onDragOver={(e) => handleDragOver(e, item)}
+                      onDragLeave={() => handleDragLeave(item)}
+                      onDrop={(e) => handleDrop(e, item)}
+                    >
                       {item.emoji}
                     </div>
                     <div className="flex-1 min-w-0">

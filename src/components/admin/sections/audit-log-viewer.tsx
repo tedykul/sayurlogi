@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  Loader2, Search, Filter, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw,
+  Loader2, Search, Filter, Clock, CheckCircle2, XCircle, AlertCircle, RefreshCw, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,17 +79,22 @@ export function AuditLogViewer() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Build query string from filters
+  const PAGE_SIZE = 50;
+
+  // Build query string from filters. Page 1 query — when filters
+  // change we reset to first page (entries replaced).
   const queryString = useMemo(() => {
-    const params = new URLSearchParams({ limit: "100" });
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: "0" });
     if (filterAction !== "all") params.set("action", filterAction);
     if (filterSuccess === "true") params.set("success", "true");
     if (filterSuccess === "false") params.set("success", "false");
     return params.toString();
   }, [filterAction, filterSuccess]);
 
+  // Initial / filter-change fetch — replaces entries.
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -109,6 +114,38 @@ export function AuditLogViewer() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load more — append next page of entries (offset = current length).
+  // Server returns entries already filtered by action/success, so
+  // we only need to pass the same filters + new offset.
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || entries.length >= total) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(entries.length),
+      });
+      if (filterAction !== "all") params.set("action", filterAction);
+      if (filterSuccess === "true") params.set("success", "true");
+      if (filterSuccess === "false") params.set("success", "false");
+      const res = await adminFetch<{ success: boolean; entries: AuditEntry[]; total: number }>(
+        `/api/admin/audit?${params.toString()}`
+      );
+      // Dedup by id (safety against offset drift if entries were
+      // added between page loads) and append.
+      setEntries((prev) => {
+        const existing = new Set(prev.map((e) => e.id));
+        const fresh = (res.entries || []).filter((e) => !existing.has(e.id));
+        return [...prev, ...fresh];
+      });
+      setTotal(res.total || total);
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memuat lebih banyak log");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, entries.length, total, filterAction, filterSuccess]);
 
   // Client-side search filter (on target field)
   const filtered = useMemo(() => {
@@ -141,8 +178,9 @@ export function AuditLogViewer() {
         }
       />
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/* Filters — sticky to top of scroll container so they stay
+          visible while scrolling through long log lists. */}
+      <div className="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/60 flex flex-wrap gap-2">
         <Select value={filterAction} onValueChange={setFilterAction}>
           <SelectTrigger className="w-[160px] h-9 rounded-lg text-xs">
             <Filter className="h-3.5 w-3.5 mr-1" />
@@ -193,15 +231,15 @@ export function AuditLogViewer() {
           </div>
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums text-emerald-600">
-              {entries.filter((e) => e.success).length}
+              {filtered.filter((e) => e.success).length}
             </p>
-            <p className="text-xs text-muted-foreground">Sukses</p>
+            <p className="text-xs text-muted-foreground">Sukses (terlihat)</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-center">
             <p className="text-lg font-bold tabular-nums text-rose-600">
-              {entries.filter((e) => !e.success).length}
+              {filtered.filter((e) => !e.success).length}
             </p>
-            <p className="text-xs text-muted-foreground">Gagal</p>
+            <p className="text-xs text-muted-foreground">Gagal (terlihat)</p>
           </div>
         </div>
       )}
@@ -289,6 +327,29 @@ export function AuditLogViewer() {
               </motion.div>
             );
           })}
+        </div>
+      )}
+
+      {/* Load more — server pagination (was capped at 100 entries). */}
+      {!loading && !error && filtered.length > 0 && entries.length < total && (
+        <div className="mt-4 flex flex-col items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="h-9"
+          >
+            {loadingMore ? (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            ) : (
+              <ChevronDown className="h-4 w-4 mr-1.5" />
+            )}
+            {loadingMore ? "Memuat..." : "Muat lebih banyak"}
+          </Button>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            Menampilkan {entries.length} dari {total} entri
+          </p>
         </div>
       )}
 

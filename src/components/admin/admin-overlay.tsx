@@ -9,6 +9,7 @@ import {
   Home, Sparkles, Phone, HelpCircle, Users, MessageSquare,
   Layers, PanelBottom, PanelTop, ScrollText, Package, Palette,
   ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck, Globe,
+  Smartphone, Tablet, Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import { DeliveryEditor } from "./sections/delivery-editor";
 import { WelcomeBannerEditor } from "./sections/welcome-banner-editor";
 import { GoogleAuthEditor } from "./sections/google-auth-editor";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 // ============================================================
 // AdminOverlay — full-screen content management overlay.
@@ -160,6 +162,14 @@ const TAB_GROUPS: TabGroup[] = [
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+type PreviewWidth = "full" | "tablet" | "mobile";
+
+const PREVIEW_WIDTHS: Record<PreviewWidth, { label: string; icon: typeof Smartphone; maxWidth: string; px: string }> = {
+  full: { label: "Desktop", icon: Monitor, maxWidth: "max-w-3xl", px: "1280px" },
+  tablet: { label: "Tablet", icon: Tablet, maxWidth: "max-w-2xl", px: "768px" },
+  mobile: { label: "Mobile", icon: Smartphone, maxWidth: "max-w-sm", px: "375px" },
+};
+
 function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -173,6 +183,19 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   // during hydration (avoid flash of login form when flag exists).
   const [mounted] = useState(() => typeof window !== "undefined");
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  // Responsive preview frame (Phase 2): admin can constrain the
+  // content area to mobile/tablet width to preview how content
+  // editors look on smaller screens. Persisted in localStorage.
+  const [previewWidth, setPreviewWidth] = useState<PreviewWidth>(() => {
+    if (typeof window === "undefined") return "full";
+    return (localStorage.getItem("admin-preview-width") as PreviewWidth) || "full";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("admin-preview-width", previewWidth);
+    }
+  }, [previewWidth]);
 
   // On mount: always validate the session against the server.
   // The httpOnly cookie is sent automatically; if valid, populate
@@ -342,6 +365,31 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                     </div>
                   </div>
                 )}
+                {/* Responsive preview frame toggle (Phase 2): constrains
+                    the editor content width to simulate mobile/tablet/desktop.
+                    Only visible on md+ (mobile sidebar already collapses). */}
+                <div className="hidden md:flex items-center rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Lebar preview konten">
+                  {(Object.keys(PREVIEW_WIDTHS) as PreviewWidth[]).map((w) => {
+                    const cfg = PREVIEW_WIDTHS[w];
+                    const active = previewWidth === w;
+                    return (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => setPreviewWidth(w)}
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                          active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        aria-label={`Preview ${cfg.label} (${cfg.px})`}
+                        aria-pressed={active}
+                        title={`Preview ${cfg.label} (${cfg.px})`}
+                      >
+                        <cfg.icon className="h-3.5 w-3.5" />
+                      </button>
+                    );
+                  })}
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -422,13 +470,24 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                 </div>
               </nav>
 
-              {/* Content area — target of the skip link above */}
+              {/* Content area — target of the skip link above.
+                  Width is constrained by the preview frame toggle
+                  (mobile/tablet/full). When constrained, content is
+                  centered with a subtle backdrop to show the boundary. */}
               <div
                 id="admin-main-content"
-                className="flex-1 overflow-y-auto scrollbar-grocery p-4 md:p-6"
+                className={cn(
+                  "flex-1 overflow-y-auto scrollbar-grocery p-4 md:p-6 transition-all",
+                  previewWidth !== "full" && "bg-secondary/20"
+                )}
                 tabIndex={-1}
               >
-                <div className="mx-auto max-w-3xl">
+                <div className={cn("mx-auto", PREVIEW_WIDTHS[previewWidth].maxWidth)}>
+                  {previewWidth !== "full" && (
+                    <p className="mb-3 text-center text-xs font-medium text-muted-foreground">
+                      📱 Preview {PREVIEW_WIDTHS[previewWidth].label} — {PREVIEW_WIDTHS[previewWidth].px}
+                    </p>
+                  )}
                   {activeTab === "dashboard" && <DashboardEditor />}
                   {activeTab === "orders" && <OrderEditor />}
                   {activeTab === "products" && <ProductEditor />}
