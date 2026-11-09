@@ -433,7 +433,7 @@ function CouponRow({
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="Edit">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <DeleteButton onDelete={onDelete} label="" className="h-8 w-8 px-0" />
+            <DeleteButton onDelete={onDelete} label="" ariaLabel="Hapus kupon" className="h-8 w-8 px-0" />
           </div>
         </div>
       </div>

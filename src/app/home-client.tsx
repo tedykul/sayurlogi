@@ -189,6 +189,25 @@ export function HomeClient({ content }: HomeClientProps) {
     };
   }, [fetchProducts]);
 
+  // Keep categories in sync when server props change (e.g. after
+  // router.refresh() from the admin Preview button — useState initial
+  // value alone wouldn't pick up new props on re-render).
+  useEffect(() => {
+    setCategories(content.categories);
+  }, [content.categories]);
+
+  // Admin Preview: AdminOverlay dispatches this event alongside
+  // router.refresh() so the storefront re-fetches client-side data
+  // (products) without a full page reload.
+  useEffect(() => {
+    const onContentRefresh = () => {
+      fetchProducts();
+    };
+    window.addEventListener("sayurlogi:content-refresh", onContentRefresh);
+    return () =>
+      window.removeEventListener("sayurlogi:content-refresh", onContentRefresh);
+  }, [fetchProducts]);
+
   // Fetch customer profile on mount (cookie sent automatically).
   // Sets customer in store → header shows avatar instead of "Masuk".
   const fetchCustomer = useCustomerStore((s) => s.fetchCustomer);

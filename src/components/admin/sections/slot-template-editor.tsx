@@ -187,6 +187,8 @@ export function SlotTemplateEditor() {
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    aria-label={`Hapus slot ${formatHour(tmpl.startHour)}-${formatHour(tmpl.endHour)}`}
+                    title="Hapus slot"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

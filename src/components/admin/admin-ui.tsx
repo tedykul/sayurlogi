@@ -118,10 +118,13 @@ export function SaveButton({
 export function DeleteButton({
   onDelete,
   label = "Hapus",
+  ariaLabel,
   className,
 }: {
   onDelete: () => Promise<void> | void;
   label?: string;
+  /** Accessible name — required when used icon-only (label=""). */
+  ariaLabel?: string;
   className?: string;
 }) {
   const [armed, setArmed] = useState(false);
@@ -152,17 +155,19 @@ export function DeleteButton({
       onClick={handleClick}
       disabled={deleting}
       className={cn("h-8 text-xs", className)}
+      aria-label={ariaLabel || label || "Hapus"}
+      title={ariaLabel || label || "Hapus"}
     >
       {deleting ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
       ) : armed ? (
         <>
-          <AlertCircle className="h-3 w-3 mr-1" />
-          Konfirmasi?
+          <AlertCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+          {label ? "Konfirmasi?" : <span className="sr-only">Konfirmasi hapus?</span>}
         </>
       ) : (
         <>
-          <Trash2 className="h-3 w-3 mr-1" />
+          <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" />
           {label}
         </>
       )}

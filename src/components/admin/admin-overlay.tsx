@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { SessionProvider, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -103,32 +104,66 @@ interface TabDef {
   adminOnly?: boolean;
 }
 
-const TABS: TabDef[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "orders", label: "Pesanan", icon: Package },
-  { id: "products", label: "Produk", icon: ShoppingCart },
-  { id: "header", label: "Header", icon: PanelTop },
-  { id: "hero", label: "Hero", icon: Home },
-  { id: "promo", label: "Promo", icon: Sparkles },
-  { id: "contact", label: "Kontak", icon: Phone },
-  { id: "faq", label: "FAQ", icon: HelpCircle },
-  { id: "testimonials", label: "Testimoni", icon: MessageSquare },
-  { id: "about", label: "Tentang", icon: Users },
-  { id: "categories", label: "Kategori", icon: Layers },
-  { id: "footer", label: "Footer", icon: PanelBottom },
-  { id: "branding", label: "Branding", icon: Palette },
-  { id: "coupons", label: "Kupon", icon: Ticket },
-  { id: "reviews", label: "Reviews", icon: Star },
-  { id: "delivery", label: "Delivery", icon: Truck },
-  { id: "welcome-banner", label: "Banner", icon: Sparkles },
-  { id: "google-auth", label: "Google Auth", icon: Globe },
-  { id: "users", label: "Users", icon: UserCog, adminOnly: true },
-  { id: "audit", label: "Audit Log", icon: ScrollText },
-  { id: "integration", label: "Integrasi", icon: Link2 },
+interface TabGroup {
+  label: string;
+  tabs: TabDef[];
+}
+
+// Sidebar tabs grouped into logical sections (J audit: a flat 21-item
+// list caused cognitive overload — grouping reduces scan time and
+// makes related editors discoverable). Order within groups preserved
+// from the original flat list for backward familiarity.
+const TAB_GROUPS: TabGroup[] = [
+  {
+    label: "Utama",
+    tabs: [
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { id: "orders", label: "Pesanan", icon: Package },
+      { id: "products", label: "Produk", icon: ShoppingCart },
+    ],
+  },
+  {
+    label: "Tampilan Halaman",
+    tabs: [
+      { id: "header", label: "Header", icon: PanelTop },
+      { id: "hero", label: "Hero", icon: Home },
+      { id: "promo", label: "Promo", icon: Sparkles },
+      { id: "welcome-banner", label: "Banner", icon: Sparkles },
+      { id: "about", label: "Tentang", icon: Users },
+      { id: "testimonials", label: "Testimoni", icon: MessageSquare },
+      { id: "faq", label: "FAQ", icon: HelpCircle },
+      { id: "contact", label: "Kontak", icon: Phone },
+      { id: "categories", label: "Kategori", icon: Layers },
+      { id: "footer", label: "Footer", icon: PanelBottom },
+    ],
+  },
+  {
+    label: "Penjualan",
+    tabs: [
+      { id: "coupons", label: "Kupon", icon: Ticket },
+      { id: "reviews", label: "Reviews", icon: Star },
+      { id: "delivery", label: "Delivery", icon: Truck },
+    ],
+  },
+  {
+    label: "Sistem",
+    tabs: [
+      { id: "branding", label: "Branding", icon: Palette },
+      { id: "google-auth", label: "Google Auth", icon: Globe },
+      { id: "users", label: "Users", icon: UserCog, adminOnly: true },
+      { id: "audit", label: "Audit Log", icon: ScrollText },
+      { id: "integration", label: "Integrasi", icon: Link2 },
+    ],
+  },
 ];
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   const { data: session } = useSession();
+  const router = useRouter();
+  const overlayRef = useRef<HTMLDivElement>(null);
   // Lazy init: read UI flag + cached user from sessionStorage on
   // client, false/null on SSR. The flag is NOT authoritative —
   // checkAuthStatus() runs on mount to confirm against the server.
@@ -178,6 +213,48 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onOpenChange]);
 
+  // Focus trap (E-audit): the overlay is role="dialog" aria-modal="true",
+  // so keyboard focus must stay inside while open (WCAG 2.4.3).
+  // On open: move focus to the first focusable element (the skip link
+  // when authed). On close: restore focus to the trigger element.
+  // Tab cycles within the overlay; Radix portals (dialogs/sheets opened
+  // by sections) manage their own focus and are unaffected.
+  useEffect(() => {
+    if (!open) return;
+    const el = overlayRef.current;
+    if (!el) return;
+
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = Array.from(
+        el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      ).filter((node) => node.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    el.addEventListener("keydown", onKeyDown);
+    return () => {
+      el.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
+
   const handleLogout = async () => {
     await logoutAdmin();
     setUser(null);
@@ -185,14 +262,32 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
     toast.success("Logged out dari admin");
   };
 
+  // Preview: refresh the storefront underneath WITHOUT closing the
+  // admin overlay (was window.location.reload() — full reload lost the
+  // admin session UI + active tab). router.refresh() re-renders the
+  // server components (page content from DB); the custom event tells
+  // HomeClient to re-fetch client-side data (products).
+  const handlePreview = () => {
+    router.refresh();
+    window.dispatchEvent(new CustomEvent("sayurlogi:content-refresh"));
+    toast.success("Preview diperbarui", {
+      description: "Konten storefront dimuat ulang di bawah overlay.",
+    });
+  };
+
   // Don't render anything until mounted (avoid hydration flash)
   if (!mounted || !open) return null;
 
-  const visibleTabs = TABS.filter((t) => !t.adminOnly || user?.role === "super_admin" || user?.role === "admin");
+  const canSeeAdminTabs = user?.role === "super_admin" || user?.role === "admin";
+  const visibleGroups = TAB_GROUPS.map((g) => ({
+    ...g,
+    tabs: g.tabs.filter((t) => !t.adminOnly || canSeeAdminTabs),
+  })).filter((g) => g.tabs.length > 0);
 
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -213,6 +308,14 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
           />
         ) : (
           <div className="flex h-full flex-col">
+            {/* Skip link (E-audit a11y): keyboard users can jump past
+                the sidebar nav straight to the editor content. */}
+            <a
+              href="#admin-main-content"
+              className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[60] focus:rounded-lg focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg"
+            >
+              Lewati ke konten utama
+            </a>
             {/* Top bar */}
             <header className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -242,9 +345,9 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => window.location.reload()}
+                  onClick={handlePreview}
                   className="h-8 text-xs"
-                  title="Reload halaman untuk lihat perubahan"
+                  title="Muat ulang konten storefront (admin tetap terbuka)"
                 >
                   🔄 Preview
                 </Button>
@@ -271,30 +374,60 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
 
             {/* Body: sidebar + content */}
             <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar */}
-              <nav className="w-16 md:w-48 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto scrollbar-grocery">
-                <ul className="p-2 space-y-1">
-                  {visibleTabs.map((tab) => (
-                    <li key={tab.id}>
-                      <button
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
-                          activeTab === tab.id
-                            ? "bg-primary text-primary-foreground"
-                            : "text-foreground hover:bg-accent"
-                        }`}
-                        aria-current={activeTab === tab.id ? "page" : undefined}
+              {/* Sidebar — grouped tabs. On mobile (<md) it collapses to
+                  an icon-only rail; labels stay in the a11y tree via
+                  sr-only so icon-only buttons keep their accessible
+                  name (E-audit). */}
+              <nav
+                className="w-16 md:w-48 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto scrollbar-grocery"
+                aria-label="Navigasi admin"
+              >
+                <div className="p-2">
+                  {visibleGroups.map((group, gi) => (
+                    <div
+                      key={group.label}
+                      className={
+                        gi > 0
+                          ? "mt-2 border-t border-border/60 pt-2 md:mt-0 md:border-0 md:pt-3"
+                          : undefined
+                      }
+                    >
+                      <p
+                        aria-hidden="true"
+                        className="hidden md:block px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                       >
-                        <tab.icon className="h-4 w-4 shrink-0" />
-                        <span className="hidden md:inline">{tab.label}</span>
-                      </button>
-                    </li>
+                        {group.label}
+                      </p>
+                      <ul className="space-y-1">
+                        {group.tabs.map((tab) => (
+                          <li key={tab.id}>
+                            <button
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                                activeTab === tab.id
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-foreground hover:bg-accent"
+                              }`}
+                              aria-current={activeTab === tab.id ? "page" : undefined}
+                              title={tab.label}
+                            >
+                              <tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                              <span className="sr-only md:not-sr-only">{tab.label}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </nav>
 
-              {/* Content area */}
-              <div className="flex-1 overflow-y-auto scrollbar-grocery p-4 md:p-6">
+              {/* Content area — target of the skip link above */}
+              <div
+                id="admin-main-content"
+                className="flex-1 overflow-y-auto scrollbar-grocery p-4 md:p-6"
+                tabIndex={-1}
+              >
                 <div className="mx-auto max-w-3xl">
                   {activeTab === "dashboard" && <DashboardEditor />}
                   {activeTab === "orders" && <OrderEditor />}

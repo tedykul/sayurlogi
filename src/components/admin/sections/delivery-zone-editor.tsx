@@ -210,7 +210,13 @@ export function DeliveryZoneEditor() {
                           onChange={(e) => setEditForm({ ...editForm, freeShippingMin: Number(e.target.value) })}
                           className="h-7 text-xs"
                         />
-                        <Button onClick={() => handleUpdate(zone.id, editForm)} size="icon" className="h-7 w-7 shrink-0">
+                        <Button
+                          onClick={() => handleUpdate(zone.id, editForm)}
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          aria-label="Simpan zona"
+                          title="Simpan zona"
+                        >
                           <Check className="h-3 w-3" />
                         </Button>
                       </div>
@@ -238,6 +244,8 @@ export function DeliveryZoneEditor() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
+                          aria-label={`Edit zona ${zone.name}`}
+                          title="Edit zona"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -246,6 +254,8 @@ export function DeliveryZoneEditor() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 text-destructive hover:text-destructive"
+                          aria-label={`Hapus zona ${zone.name}`}
+                          title="Hapus zona"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
