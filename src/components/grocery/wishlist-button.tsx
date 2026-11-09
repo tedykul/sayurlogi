@@ -25,9 +25,14 @@ export function WishlistButton({
   variant = "overlay",
   className,
 }: WishlistButtonProps) {
-  const has = useWishlistStore((s) => s.has);
+  // Subscribe to the actual derived boolean — NOT the function reference.
+  // Pre-existing bug: `useWishlistStore((s) => s.has)` returns the stable
+  // `has` function ref, which never changes → Zustand's Object.is equality
+  // thinks "no change" → component never re-renders when wishlist updates.
+  // Fix: subscribe to `s.has(product.id)` (the boolean), so the component
+  // re-renders whenever this product's wishlist state flips.
+  const isWishlisted = useWishlistStore((s) => s.has(product.id));
   const toggle = useWishlistStore((s) => s.toggle);
-  const isWishlisted = has(product.id);
 
   const sizeClasses = {
     sm: "h-7 w-7",

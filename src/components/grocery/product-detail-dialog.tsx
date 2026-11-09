@@ -392,24 +392,17 @@ function ProductDetailContent({
         </div>
 
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0 md:pt-7">
-          <div className="flex items-start justify-between gap-3 pr-14">
-            <DialogTitle className="text-2xl font-bold leading-tight flex-1">
-              {product.name}
-            </DialogTitle>
-            {/* Wishlist button — let user wishlist directly from detail
-                dialog (before, only available on product card — E2 audit bug #1).
-                pr-14 on parent reserves 56px for the dialog's default close [x]
-                button (absolute top-3 right-3, size-10 = 40px) PLUS a visual
-                breathing gap. With pr-10 the buttons were separated but still
-                visually "melekat" (12px gap). pr-14 gives ~28px gap so the
-                two buttons read as distinct controls. */}
-            <WishlistButton
-              product={product}
-              size="md"
-              variant="inline"
-              className="shrink-0 -mt-0.5"
-            />
-          </div>
+          {/* Title row — full width, no reserved padding.
+              WishlistButton moved OUT of this header to the sticky footer
+              action bar (next to "Beli Langsung") to avoid proximity
+              with the dialog's default close [x] button (absolute top-3 right-3).
+              Prior attempts (pr-10/14/20) only added horizontal gap but the two
+              controls still visually competed in the same top-right corner.
+              Pattern matches Shopee/Tokopedia: wishlist as secondary action
+              in the conversion footer bar. */}
+          <DialogTitle className="text-2xl font-bold leading-tight">
+            {product.name}
+          </DialogTitle>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <div className="flex items-center gap-1">
               <div className="flex" aria-label={`Rating ${rating.toFixed(1)} dari 5`}>
@@ -659,23 +652,43 @@ function ProductDetailContent({
                   {inCart ? "Perbarui Keranjang" : "Tambah ke Keranjang"}
                 </Button>
               </div>
-              {/* Row 2: Beli Langsung (single secondary, no "Lanjut Belanja") */}
-              <Button
-                onClick={handleBuyNow}
-                size="lg"
-                variant="outline"
-                className="h-11 w-full rounded-xl text-sm font-medium border-primary/40 text-primary hover:bg-primary/5 transition-transform hover:scale-[1.01] md:h-12"
-              >
-                Beli Langsung
-              </Button>
+              {/* Row 2: Wishlist (secondary) + Beli Langsung (secondary, primary conversion alt).
+                  Wishlist moved here from DialogHeader — sits next to Beli Langsung
+                  as a sibling secondary action, mirroring Shopee/Tokopedia pattern.
+                  No more visual competition with close [x] button. */}
+              <div className="flex items-center gap-2">
+                <WishlistButton
+                  product={product}
+                  size="lg"
+                  variant="inline"
+                  className="shrink-0 h-11 w-11 md:h-12 md:w-12 rounded-xl border border-primary/40 text-primary hover:bg-primary/5 bg-background"
+                />
+                <Button
+                  onClick={handleBuyNow}
+                  size="lg"
+                  variant="outline"
+                  className="h-11 flex-1 rounded-xl text-sm font-medium border-primary/40 text-primary hover:bg-primary/5 transition-transform hover:scale-[1.01] md:h-12"
+                >
+                  Beli Langsung
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="sticky bottom-0 border-t border-border/60 bg-destructive/5 p-4 shrink-0">
-            <div className="flex items-center justify-center gap-2 text-destructive font-semibold">
+          <div className="sticky bottom-0 border-t border-border/60 bg-destructive/5 p-3 md:p-4 shrink-0">
+            <div className="flex items-center justify-center gap-2 text-destructive font-semibold mb-2.5">
               <Package className="h-5 w-5" />
               Maaf, varian ini sedang habis
             </div>
+            {/* Wishlist still available when out-of-stock — lets user save
+                for restock notification / future purchase. Same placement as
+                in-stock footer (left of secondary action) for consistency. */}
+            <WishlistButton
+              product={product}
+              size="lg"
+              variant="inline"
+              className="mx-auto h-11 w-11 md:h-12 md:w-12 rounded-xl border border-primary/40 text-primary hover:bg-primary/5 bg-background"
+            />
           </div>
         )}
       </div>
