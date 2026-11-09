@@ -392,16 +392,17 @@ function ProductDetailContent({
         </div>
 
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0 md:pt-7">
-          <div className="flex items-start justify-between gap-3 pr-10">
+          <div className="flex items-start justify-between gap-3 pr-14">
             <DialogTitle className="text-2xl font-bold leading-tight flex-1">
               {product.name}
             </DialogTitle>
             {/* Wishlist button — let user wishlist directly from detail
                 dialog (before, only available on product card — E2 audit bug #1).
-                pr-10 on parent reserves space for the dialog's default close [x]
-                button (absolute top-3 right-3, size-10 = 40px). Without this
-                padding, the wishlist button (-mr-2) was pulled into the same
-                top-right corner as the close button → overlap (tumpuk). */}
+                pr-14 on parent reserves 56px for the dialog's default close [x]
+                button (absolute top-3 right-3, size-10 = 40px) PLUS a visual
+                breathing gap. With pr-10 the buttons were separated but still
+                visually "melekat" (12px gap). pr-14 gives ~28px gap so the
+                two buttons read as distinct controls. */}
             <WishlistButton
               product={product}
               size="md"
