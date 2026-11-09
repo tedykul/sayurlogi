@@ -17,6 +17,8 @@ import {
   AdminEmptyState,
   DeleteButton,
   useAdminFetch,
+  useUnsavedGuard,
+  confirmDiscard,
 } from "../admin-ui";
 
 interface Category {
@@ -237,6 +239,7 @@ export function CategoryEditor() {
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleTogglePublish(item)} className="h-7 text-xs">
                         {item.published ? <EyeOff className="h-3 w-3 mr-1" /> : <Eye className="h-3 w-3 mr-1" />}
+                        {item.published ? "Sembunyikan" : "Publikasi"}
                       </Button>
                       <DeleteButton onDelete={() => handleDelete(item.id)} />
                     </div>
@@ -274,6 +277,23 @@ function CategoryForm({
     gradient: initial?.gradient ?? "from-green-400 to-emerald-600",
   });
   const [saving, setSaving] = useState(false);
+
+  // Unsaved-changes protection (Phase 3): dirty derived in render
+  // (form state changes always re-render), snapshot captured once.
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({
+      name: initial?.name ?? "",
+      emoji: initial?.emoji ?? "🥬",
+      description: initial?.description ?? "",
+      gradient: initial?.gradient ?? "from-green-400 to-emerald-600",
+    })
+  );
+  const dirty = JSON.stringify(form) !== initialSnapshot;
+  useUnsavedGuard(dirty);
+  const handleCancel = () => {
+    if (!confirmDiscard(dirty)) return;
+    onCancel();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,7 +359,7 @@ function CategoryForm({
           </div>
         </AdminField>
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-8">Batal</Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleCancel} className="h-8">Batal</Button>
           <Button type="submit" disabled={saving} size="sm" className="h-8">
             {saving ? "Menyimpan..." : "Simpan"}
           </Button>

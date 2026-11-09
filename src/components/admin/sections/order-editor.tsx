@@ -3,14 +3,14 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Loader2, Search, Filter, RefreshCw, Package, Phone, MapPin, Clock, ChevronDown, ChevronUp,
-  CheckCircle2, AlertCircle,
+  CheckCircle2, AlertCircle, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
-import { adminFetch } from "@/lib/admin-client";
+import { adminFetch, getAdminToken } from "@/lib/admin-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatIDR } from "@/lib/mock-data";
@@ -52,6 +52,53 @@ export function OrderEditor() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  // Export CSV (Phase 3): download ALL orders matching the current
+  // filter + search (not just the visible page). Raw fetch because
+  // adminFetch parses JSON — CSV needs the raw body.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus === "need_verification") {
+        params.set("payment_status", "pending_verification");
+      } else if (filterStatus !== "all") {
+        params.set("status", filterStatus);
+      }
+      if (search.trim()) params.set("search", search.trim());
+
+      const headers: Record<string, string> = {};
+      const token = getAdminToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/admin/orders/export?${params}`, {
+        headers,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || "Gagal export pesanan");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sayurlogi-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Export CSV berhasil", {
+        description: "File pesanan diunduh sesuai filter aktif.",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Gagal export pesanan");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -198,6 +245,22 @@ export function OrderEditor() {
             className="h-9 pl-9 rounded-lg text-xs"
           />
         </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || loading}
+          className="h-9 rounded-lg text-xs shrink-0"
+          aria-label="Export pesanan ke CSV"
+        >
+          {exporting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          <span className="ml-1 hidden sm:inline">Export CSV</span>
+        </Button>
       </div>
 
       {/* Error state */}

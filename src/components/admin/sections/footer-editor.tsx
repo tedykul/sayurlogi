@@ -10,6 +10,7 @@ import {
   AdminField,
   SaveButton,
   AdminCard,
+  useUnsavedContent,
 } from "../admin-ui";
 
 // ============================================================
@@ -24,13 +25,14 @@ const FIELDS = [
 export function FooterEditor() {
   const [content, setContent] = useState<Record<string, string | null> | null>(null);
   const [loading, setLoading] = useState(true);
+  const { dirty, markSaved } = useUnsavedContent(content);
 
   useEffect(() => {
     let cancelled = false;
     adminFetch<Record<string, unknown>>("/api/admin/content")
       .then((res) => {
         if (cancelled) return;
-        setContent(res.content as Record<string, string | null>);
+        setContent((res.content as Record<string, string | null> | null) ?? {});
       })
       .catch(() => {
         if (!cancelled) setContent({});
@@ -52,6 +54,7 @@ export function FooterEditor() {
     const payload: Record<string, string | null> = {};
     for (const f of FIELDS) payload[f.key] = content[f.key] ?? null;
     await adminFetch("/api/admin/content", { method: "POST", body: JSON.stringify(payload) });
+    markSaved();
   };
 
   if (loading || !content) {
@@ -93,7 +96,12 @@ export function FooterEditor() {
             )}
           </AdminField>
         ))}
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-end gap-2 pt-2">
+          {dirty && (
+            <span className="text-xs text-amber-600 dark:text-amber-400" role="status">
+              ● Perubahan belum disimpan
+            </span>
+          )}
           <SaveButton onSave={handleSave} />
         </div>
       </AdminCard>

@@ -17,6 +17,8 @@ import {
   AdminEmptyState,
   DeleteButton,
   useAdminFetch,
+  useUnsavedGuard,
+  confirmDiscard,
 } from "../admin-ui";
 
 interface Testimonial {
@@ -234,6 +236,25 @@ function TestimonialForm({
   });
   const [saving, setSaving] = useState(false);
 
+  // Unsaved-changes protection (Phase 3): dirty derived in render
+  // (form state changes always re-render), snapshot captured once.
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({
+      name: initial?.name ?? "",
+      role: initial?.role ?? "",
+      avatar: initial?.avatar ?? "👤",
+      rating: initial?.rating ?? 5,
+      text: initial?.text ?? "",
+      location: initial?.location ?? "",
+    })
+  );
+  const dirty = JSON.stringify(form) !== initialSnapshot;
+  useUnsavedGuard(dirty);
+  const handleCancel = () => {
+    if (!confirmDiscard(dirty)) return;
+    onCancel();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.name.trim().length < 2) return toast.error("Nama minimal 2 karakter");
@@ -312,7 +333,7 @@ function TestimonialForm({
           />
         </AdminField>
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-8">Batal</Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleCancel} className="h-8">Batal</Button>
           <Button type="submit" disabled={saving} size="sm" className="h-8">
             {saving ? "Menyimpan..." : "Simpan"}
           </Button>

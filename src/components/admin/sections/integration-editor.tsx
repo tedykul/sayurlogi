@@ -275,6 +275,8 @@ export function IntegrationEditor() {
                 type="button"
                 onClick={() => setShowSecret(!showSecret)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showSecret ? "Sembunyikan secret" : "Tampilkan secret"}
+                title={showSecret ? "Sembunyikan secret" : "Tampilkan secret"}
               >
                 {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

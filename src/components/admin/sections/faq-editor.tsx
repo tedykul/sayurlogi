@@ -18,6 +18,8 @@ import {
   AdminEmptyState,
   DeleteButton,
   useAdminFetch,
+  useUnsavedGuard,
+  confirmDiscard,
 } from "../admin-ui";
 
 interface FaqItem {
@@ -295,6 +297,17 @@ function FaqForm({
   const [answer, setAnswer] = useState(initial?.answer ?? "");
   const [saving, setSaving] = useState(false);
 
+  // Unsaved-changes protection (Phase 3).
+  const [initialSnapshot] = useState(() =>
+    JSON.stringify({ q: initial?.question ?? "", a: initial?.answer ?? "" })
+  );
+  const dirty = JSON.stringify({ q: question, a: answer }) !== initialSnapshot;
+  useUnsavedGuard(dirty);
+  const handleCancel = () => {
+    if (!confirmDiscard(dirty)) return;
+    onCancel();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (question.trim().length < 3) {
@@ -336,7 +349,7 @@ function FaqForm({
           />
         </AdminField>
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-8">
+          <Button type="button" variant="outline" size="sm" onClick={handleCancel} className="h-8">
             Batal
           </Button>
           <Button type="submit" disabled={saving} size="sm" className="h-8">

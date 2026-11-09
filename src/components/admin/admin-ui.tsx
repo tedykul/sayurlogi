@@ -17,6 +17,74 @@ import { cn } from "@/lib/utils";
 // Admin UI primitives — reusable building blocks for editors.
 // ============================================================
 
+/**
+ * Warn before the page unloads (reload / close tab) while a form
+ * has unsaved changes (Phase 3). Browser shows its native
+ * "Leave site?" dialog — e.preventDefault() + returnValue is the
+ * standard contract for it.
+ */
+export function useUnsavedGuard(dirty: boolean) {
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+}
+
+/**
+ * Unsaved-changes tracking for content-object editors (footer,
+ * hero, about, header — the "content" pattern from
+ * /api/admin/content).
+ *
+ * Baseline snapshot is captured when content first loads; dirty
+ * is recomputed whenever content or snapshot change. markSaved()
+ * is called by the editor after a successful save to re-baseline.
+ *
+ * Includes the beforeunload guard.
+ */
+export function useUnsavedContent<T>(content: T | null): {
+  dirty: boolean;
+  markSaved: () => void;
+} {
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (content == null) return;
+    if (snapshot == null) {
+      // First load — capture the baseline (before any edits).
+      setSnapshot(JSON.stringify(content));
+      return;
+    }
+    setDirty(JSON.stringify(content) !== snapshot);
+  }, [content, snapshot]);
+
+  const markSaved = useCallback(() => {
+    if (content != null) setSnapshot(JSON.stringify(content));
+    setDirty(false);
+  }, [content]);
+
+  useUnsavedGuard(dirty);
+
+  return { dirty, markSaved };
+}
+
+/**
+ * Confirm before discarding unsaved form changes (Cancel button
+ * on inline forms — category/FAQ/testimonial editors).
+ * Returns true when safe to proceed (not dirty, or user confirmed).
+ */
+export function confirmDiscard(dirty: boolean): boolean {
+  if (!dirty) return true;
+  return window.confirm(
+    "Ada perubahan yang belum disimpan. Buang perubahan?"
+  );
+}
+
 /** Section heading with title + optional description. */
 export function AdminSectionHeading({
   title,
