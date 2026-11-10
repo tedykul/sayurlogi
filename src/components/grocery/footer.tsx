@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Leaf, Mail, Phone, MapPin, Facebook, Instagram, Twitter, ArrowUp, Send, Clock, ShieldCheck, Truck, CreditCard, ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+import { Leaf, Mail, Phone, MapPin, Facebook, Instagram, Twitter, ArrowUp, Send, Clock, ShieldCheck, Truck, CreditCard, ChevronDown, ChevronRight, HelpCircle, Download } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { NewsletterForm } from "./newsletter-form";
@@ -389,6 +389,20 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
             <a href="#faq" onClick={handleNavClick("faq")} className="hover:text-primary transition-colors">
               Privasi
             </a>
+            {/* Manual Install App button — triggers PWAInstallPrompt banner
+                even when beforeinstallprompt doesn't fire (e.g. non-HTTPS
+                production, or user dismissed earlier). Lazy-imported to
+                avoid SSR issues. */}
+            <button
+              type="button"
+              onClick={() => import("./pwa-install-prompt").then((m) => m.triggerInstallPrompt())}
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              aria-label="Install aplikasi SayurLogi"
+              title="Install aplikasi"
+            >
+              <Download className="h-3 w-3" />
+              Install App
+            </button>
             <Button variant="ghost" size="icon" onClick={scrollToTop} className="h-7 w-7 rounded-full hover:bg-primary hover:text-primary-foreground" aria-label="Kembali ke atas" title="Kembali ke atas">
               <ArrowUp className="h-3.5 w-3.5" />
             </Button>
