@@ -339,6 +339,7 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
                     width={28}
                     height={20}
                     className="h-5 w-auto"
+                    style={{ width: "auto", height: "auto" }}
                     unoptimized
                   />
                   <span className="text-xs font-bold text-foreground">{m.label}</span>
@@ -366,6 +367,7 @@ export function Footer({ content, onTrackOrder, onOrderHistory }: FooterProps = 
                   width={32}
                   height={22}
                   className="h-5 w-auto"
+                  style={{ width: "auto", height: "auto" }}
                   unoptimized
                 />
                 <span className="text-xs font-bold text-foreground">{m.label}</span>

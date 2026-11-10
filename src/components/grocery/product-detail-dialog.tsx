@@ -403,6 +403,12 @@ function ProductDetailContent({
           <DialogTitle className="text-2xl font-bold leading-tight">
             {product.name}
           </DialogTitle>
+          {/* sr-only description for screen readers (a11y) — satisfies
+              Radix Dialog's required aria-describedby. Visually hidden,
+              but communicates product context to assistive tech. */}
+          <DialogDescription className="sr-only">
+            Detail produk {product.name} — {product.category}, harga {formatIDR(product.price)} per {product.unit}.
+          </DialogDescription>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <div className="flex items-center gap-1">
               <div className="flex" aria-label={`Rating ${rating.toFixed(1)} dari 5`}>
@@ -574,8 +580,12 @@ function ProductDetailContent({
               <h3 className="mb-3 text-sm font-semibold flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-primary" />
                 Beli Ini Juga
+                <span className="ml-auto flex items-center gap-0.5 text-[10px] font-normal text-muted-foreground/70">
+                  Geser
+                  <ChevronRight className="h-3 w-3 animate-pulse" />
+                </span>
               </h3>
-              <div className="flex gap-3 overflow-x-auto scrollbar-grocery pb-2">
+              <div className="flex gap-3 overflow-x-auto scrollbar-grocery pb-2 -mr-2 pr-2">
                 {relatedProducts.slice(0, 6).map((rp) => (
                   <button
                     key={rp.id}

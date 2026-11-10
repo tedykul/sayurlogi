@@ -34,13 +34,15 @@ export function WishlistButton({
   const isWishlisted = useWishlistStore((s) => s.has(product.id));
   const toggle = useWishlistStore((s) => s.toggle);
 
+  // Touch target sizes — minimum 36px for "sm" (was 28px, below 44px
+  // WCAG minimum). Icon stays proportional inside the button.
   const sizeClasses = {
-    sm: "h-7 w-7",
-    md: "h-9 w-9",
-    lg: "h-10 w-10",
+    sm: "h-9 w-9",  // 36px (was h-7 w-7 = 28px — too small for thumb tap)
+    md: "h-10 w-10",  // 40px
+    lg: "h-11 w-11",  // 44px (WCAG min for primary actions)
   };
   const iconSizes = {
-    sm: "h-3.5 w-3.5",
+    sm: "h-4 w-4",  // 16px icon in 36px button — visible + balanced
     md: "h-4 w-4",
     lg: "h-5 w-5",
   };

@@ -118,6 +118,13 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Sticky header (~69px) covers anchored content when user clicks nav
+       links (#belanja, #faq, etc). scroll-padding-top reserves space so
+       the target section appears BELOW the sticky header — no content
+       gets cropped. 5rem = 80px (header + breathing room). */
+    scroll-padding-top: 5rem;
+  }
   body {
     @apply bg-background text-foreground;
     /*/* Mobile: padding-bottom for bottom nav safe area (iOS home indicator).

@@ -206,7 +206,7 @@ export function Header({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             type="search"
-            placeholder="Cari sayur, buah, atau paket hemat..."
+            placeholder="Cari sayur, buah..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-10 pl-9 pr-4 rounded-full bg-secondary/60 border-border/60 ring-1 ring-border/50 transition-all focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"

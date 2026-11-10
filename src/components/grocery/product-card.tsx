@@ -1,7 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Plus, Minus, Leaf, Star } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Minus, Leaf, Star, Check } from "lucide-react";
+import { toast } from "sonner";
 import { useCartStore } from "@/lib/store/cart";
 import { formatIDR } from "@/lib/mock-data";
 import type { Product } from "@/types/grocery";
@@ -28,6 +30,21 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
       ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
       : 0;
   const rating = product.rating ?? 0;
+
+  // Brief "added ✓" feedback state — shows check icon overlay on card image
+  // for 1.5s after add. The + button itself transitions to QtyStepper
+  // immediately (because inCart becomes true), so the visual feedback
+  // lives as a floating checkmark badge on the image instead.
+  const [justAdded, setJustAdded] = useState(false);
+  const handleAdd = () => {
+    addItem(product, 1);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1500);
+    toast.success(`${product.name} ditambahkan ke keranjang`, {
+      duration: 1800,
+      position: "top-center",
+    });
+  };
 
   const handleCardClick = () => onOpenDetail?.(product);
 
@@ -76,6 +93,24 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
           className="aspect-square"
         />
 
+        {/* Just-added overlay — green checkmark badge on image.
+            Shows briefly when user clicks + (toast confirmation appears
+            simultaneously). Visual feedback that item was added to cart. */}
+        <AnimatePresence>
+          {justAdded && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="absolute bottom-2 left-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-white"
+              aria-hidden="true"
+            >
+              <Check className="h-5 w-5" strokeWidth={3} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {outOfStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-stone-900/50 backdrop-blur-[2px]">
             <span className="text-sm font-bold text-white tracking-wide uppercase drop-shadow-lg">
@@ -101,7 +136,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
             handleCardClick();
           }
         }}
-        className="flex flex-1 cursor-pointer flex-col gap-1 px-2 py-2.5"
+        className="flex flex-1 cursor-pointer flex-col gap-0.5 px-2 py-2.5"
       >
         <h3 className="line-clamp-2 text-[13px] font-semibold leading-tight tracking-tight text-foreground min-h-[2.4em]">{product.name}</h3>
 
@@ -115,7 +150,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
         )}
 
         {/* Price + add button — price is hero, button is icon-only */}
-        <div className="mt-1 flex items-end justify-between gap-1.5">
+        <div className="mt-0.5 flex items-end justify-between gap-1.5">
           <div className="flex min-w-0 flex-col">
             {product.oldPrice && (
               <span className="text-xs text-muted-foreground/50 line-through leading-none">
@@ -142,7 +177,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
               />
             ) : (
               <button
-                onClick={() => addItem(product, 1)}
+                onClick={handleAdd}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-all duration-200 hover:scale-110 hover:shadow-md active:scale-95"
                 aria-label={`Tambah ${product.name} ke keranjang`}
               >
