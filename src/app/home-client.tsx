@@ -281,8 +281,13 @@ export function HomeClient({ content }: HomeClientProps) {
     setHistoryOpen(false);
   };
 
+  // Root wrapper reserves space below content so the mobile fixed
+  // bottom nav (h-16 = 64px + env(safe-area-inset-bottom) for iOS
+  // home indicator) does NOT cover the footer copyright & links
+  // ("© SayurLogi", "Syarat", "Privasi") when user scrolls to the
+  // very bottom of the page. Desktop has no bottom nav (md:hidden) → md:pb-0.
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {/* Welcome Banner — full-screen modal on first visit.
           Renders only when enabled in admin > Promo tab AND user
           hasn't dismissed the current version yet. */}
