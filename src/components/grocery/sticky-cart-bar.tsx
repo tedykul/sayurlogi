@@ -10,7 +10,14 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // StickyCartBar — fixed bottom bar showing cart summary.
 // ============================================================
-// Appears when cart has items + cart sheet is closed.
+// DISABLED on mobile (< md): the BottomNav component already has a
+// dedicated cart tab with a live item-count badge, so a second fixed
+// cart bar on the same screen was redundant AND visually overlapped
+// the bottom nav (both were z-40, bottom-0 → cart bar covered nav).
+// The cart bar is kept here for legacy/non-mobile use cases (e.g. if
+// BottomNav is ever removed) but is currently hidden via 'hidden'
+// class. To re-enable in future, swap 'hidden' → 'md:hidden'.
+//
 // Hidden on desktop (md:hidden) — desktop uses header cart.
 // Mobile-only conversion booster (Shopee/Tokopedia pattern).
 // ============================================================
@@ -40,7 +47,7 @@ export function StickyCartBar() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed inset-x-0 bottom-0 z-40 md:hidden"
+          className="hidden inset-x-0 bottom-0 z-40 md:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="mx-2 mb-2 flex items-center gap-3 rounded-2xl border border-primary/20 bg-background/95 p-2.5 shadow-2xl ring-1 ring-primary/10 backdrop-blur-lg">
