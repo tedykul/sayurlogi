@@ -40,28 +40,16 @@ interface BottomNavProps {
 
 export function BottomNav({ onOpenCart, onOpenWishlist }: BottomNavProps) {
   const [activeSection, setActiveSection] = useState("beranda");
-  const [visible, setVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
 
   const totalItems = useCartStore((s) => s.getTotalItems());
   const wishlistCount = useWishlistStore((s) => s.getCount());
   const isCartOpen = useCartStore((s) => s.isOpen);
 
-  // Scroll handler: auto-hide on scroll down, show on scroll up + scroll spy
+  // Scroll spy only (auto-hide removed — with position:sticky, the nav
+  // is always visible and takes space in the layout flow. Auto-hiding
+  // would cause page-height jitter. Matches Shopee/Tokopedia pattern.)
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // Auto-hide logic
-      if (currentScrollY > lastScrollY && currentScrollY > 200) {
-        // Scrolling down + past 200px → hide
-        setVisible(false);
-      } else {
-        // Scrolling up or near top → show
-        setVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-
       // Scroll spy: detect active section
       const sections = ["beranda", "belanja", "tentang", "faq", "kontak"];
       const offset = 150; // account for sticky header + sub-nav
@@ -81,10 +69,10 @@ export function BottomNav({ onOpenCart, onOpenWishlist }: BottomNavProps) {
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+  }, []);
 
   // Hide bottom nav when cart sheet is open (derived state, no effect needed)
-  const showNav = visible && !isCartOpen;
+  const showNav = !isCartOpen;
 
   // Haptic feedback (vibration API — native app feel)
   const hapticTap = useCallback(() => {
@@ -169,8 +157,16 @@ export function BottomNav({ onOpenCart, onOpenWishlist }: BottomNavProps) {
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 md:hidden transition-transform duration-300 ease-out",
-        showNav ? "translate-y-0" : "translate-y-full"
+        // sticky bottom-0: nav stays at viewport bottom while scrolling,
+        // then settles into its natural flow position (after footer)
+        // when user reaches page bottom. This is the KEY difference from
+        // position:fixed — sticky takes space in the layout flow, so the
+        // footer copyright sits NATURALLY above the nav. No padding-bottom
+        // reservation needed on any wrapper, no whitespace, no overlap.
+        // Auto-hide is removed (always visible) — matches Shopee/Tokopedia
+        // pattern. Nav still hides when cart sheet is open (showNav=false).
+        "sticky bottom-0 left-0 right-0 z-40 md:hidden",
+        !showNav && "hidden"
       )}
       aria-label="Navigasi bawah"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}

@@ -120,16 +120,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Mobile: padding-bottom for bottom nav (h-16 = 64px + safe area) */
+    /*/* Mobile: padding-bottom for bottom nav safe area (iOS home indicator).
+       The nav itself is position:sticky (takes space in the layout flow),
+       so no extra padding needed on body or footer. */
     padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  /* Add bottom padding to footer on mobile so copyright bar
-     isn't hidden behind fixed bottom nav */
-  @media (max-width: 767px) {
-    footer {
-      padding-bottom: 5rem; /* 80px = bottom nav (64px) + breathing room */
-    }
   }
 }
 
