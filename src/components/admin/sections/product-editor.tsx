@@ -418,7 +418,7 @@ export function ProductEditor() {
               ) : (
                 <RefreshCcw className="h-4 w-4" />
               )}
-              <span className="ml-1 hidden sm:inline">Sync ERPNext</span>
+              <span className="ml-1 hidden @md:inline">Sync ERPNext</span>
             </Button>
             <Button
               size="sm"
@@ -484,12 +484,14 @@ export function ProductEditor() {
         </AdminCard>
       )}
 
-      {/* Filters + bulk actions */}
+      {/* Filters + bulk actions — Phase 3: container-query responsive
+          widths (was w-[160px] fixed → "Semua Kategor" truncate on
+          narrow container). Now full-width on mobile, fixed on @md+. */}
       <div className="mb-3 flex flex-wrap gap-2">
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-[160px] h-9 rounded-lg text-xs">
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            <SelectValue />
+          <SelectTrigger className="w-full @md:w-[160px] h-9 rounded-lg text-xs">
+            <Filter className="h-3.5 w-3.5 mr-1 shrink-0" />
+            <SelectValue className="truncate" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">
@@ -504,8 +506,8 @@ export function ProductEditor() {
         </Select>
 
         <Select value={filterPublished} onValueChange={setFilterPublished}>
-          <SelectTrigger className="w-[160px] h-9 rounded-lg text-xs">
-            <SelectValue />
+          <SelectTrigger className="w-full @md:w-[160px] h-9 rounded-lg text-xs">
+            <SelectValue className="truncate" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">
@@ -520,12 +522,14 @@ export function ProductEditor() {
           </SelectContent>
         </Select>
 
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[120px] @md:min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          {/* Phase 3: short placeholder (was "Cari nama, kode, deskripsi, tag..."
+              → cut off at "deskripsi," in narrow container). */}
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama, kode, deskripsi, tag..."
+            placeholder="Cari produk..."
             className="h-9 pl-9 rounded-lg text-xs"
           />
         </div>
@@ -702,79 +706,101 @@ export function ProductEditor() {
                   />
                 ) : (
                   <AdminCard className="py-3">
-                    {/* Row */}
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleSelect(p.id)}
-                        className="shrink-0 text-muted-foreground hover:text-foreground"
-                        aria-label={`Pilih ${p.name}`}
-                      >
-                        {selected.has(p.id) ? (
-                          <CheckSquare className="h-4 w-4 text-primary" />
-                        ) : (
-                          <Square className="h-4 w-4" />
-                        )}
-                      </button>
+                    {/* Row — Phase 2 fix: container-query responsive.
+                        Before: `flex items-center gap-3` single-row
+                        forced 4 action buttons + thumbnail + text to
+                        share one line → text content squished to ~63px
+                        on mobile, name truncated to "Sa...".
+                        After: stack vertical on narrow container
+                        (<@md, i.e. <768px container width) with action
+                        buttons on their own row; row layout on wider.
+                        Action buttons get full width row on mobile,
+                        shrink-0 on desktop. */}
+                    <div className="flex flex-col @md:flex-row @md:items-center gap-3">
+                      {/* Row 1 (mobile) / Left (desktop): checkbox + chevron + thumbnail + content */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <button
+                          onClick={() => toggleSelect(p.id)}
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          aria-label={`Pilih ${p.name}`}
+                        >
+                          {selected.has(p.id) ? (
+                            <CheckSquare className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Square className="h-4 w-4" />
+                          )}
+                        </button>
 
-                      <button
-                        onClick={() => toggleExpand(p.id)}
-                        className="text-muted-foreground hover:text-foreground shrink-0"
-                        aria-label={expandedId === p.id ? "Tutup detail" : "Buka detail"}
-                      >
-                        {expandedId === p.id ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </button>
+                        <button
+                          onClick={() => toggleExpand(p.id)}
+                          className="text-muted-foreground hover:text-foreground shrink-0"
+                          aria-label={expandedId === p.id ? "Tutup detail" : "Buka detail"}
+                        >
+                          {expandedId === p.id ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </button>
 
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-lg">
-                        {p.emoji || "📦"}
-                      </div>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-lg">
+                          {p.emoji || "📦"}
+                        </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-semibold truncate">{p.name}</h3>
-                          <Badge
-                            variant={p.published ? "default" : "secondary"}
-                            className="text-[9px]"
-                          >
-                            {p.published ? "Live" : "Hidden"}
-                          </Badge>
-                          {p.deletedFromErp && (
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold truncate">{p.name}</h3>
                             <Badge
-                              variant="secondary"
-                              className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                              title="Item ini sudah tidak ada di ERPNext (kemungkinan dihapus/disabled). Tetap di DB untuk restore data. Hide dari storefront otomatis."
+                              variant={p.published ? "default" : "secondary"}
+                              className="text-[9px]"
                             >
-                              Dihapus dari ERP
+                              {p.published ? "Live" : "Hidden"}
                             </Badge>
-                          )}
-                          {p.organic && (
-                            <Badge variant="secondary" className="text-[9px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                              Organic
-                            </Badge>
-                          )}
-                          {p.onSale && (
-                            <Badge variant="secondary" className="text-[9px] bg-rose-500/15 text-rose-700 dark:text-rose-300">
-                              Sale
-                            </Badge>
-                          )}
-                          {p.variants && p.variants.length > 0 && (
-                            <Badge variant="outline" className="text-[9px]">
-                              {p.variants.length} varian
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                          <code className="font-mono">{p.itemCode}</code>
-                          <span>· {p.category}</span>
-                          <span>· {formatIDR(p.price)}/{p.unit}</span>
-                          <span>· stok: {p.stock}</span>
+                            {p.deletedFromErp && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                title="Item ini sudah tidak ada di ERPNext (kemungkinan dihapus/disabled). Tetap di DB untuk restore data. Hide dari storefront otomatis."
+                              >
+                                Dihapus dari ERP
+                              </Badge>
+                            )}
+                            {p.organic && (
+                              <Badge variant="secondary" className="text-[9px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                Organic
+                              </Badge>
+                            )}
+                            {p.onSale && (
+                              <Badge variant="secondary" className="text-[9px] bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                                Sale
+                              </Badge>
+                            )}
+                            {p.variants && p.variants.length > 0 && (
+                              <Badge variant="outline" className="text-[9px]">
+                                {p.variants.length} varian
+                              </Badge>
+                            )}
+                          </div>
+                          {/* Meta info — Phase 2 fix:
+                              - gap-x-2 @sm:gap-x-3 (was gap-x-3 only →
+                                "·" bullet menggantung sendirian di narrow)
+                              - whitespace-nowrap on each span (was wrap
+                                "WRTL-001" → "WRTL-" / "001")
+                              - code itemCode: whitespace-nowrap prevent
+                                break mid-item-code */}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 @md:gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            <code className="font-mono whitespace-nowrap">{p.itemCode}</code>
+                            <span className="whitespace-nowrap">· {p.category}</span>
+                            <span className="whitespace-nowrap">· {formatIDR(p.price)}/{p.unit}</span>
+                            <span className="whitespace-nowrap">· stok: {p.stock}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 gap-1">
+                      {/* Row 2 (mobile) / Right (desktop): action buttons.
+                          On mobile: full width row, justify-end.
+                          On desktop (@md+): shrink-0, inline with content. */}
+                      <div className="flex gap-1 @md:shrink-0 justify-end @md:justify-start">
                         <Button
                           size="sm"
                           variant="outline"

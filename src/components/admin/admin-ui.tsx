@@ -95,15 +95,25 @@ export function AdminSectionHeading({
   description?: string;
   action?: React.ReactNode;
 }) {
+  // Phase 1 fix: container-query responsive layout.
+  // Before: `flex items-start justify-between` forced title + action
+  // buttons to share one row. On narrow containers (preview mobile
+  // toggle 375px, or mobile real device), the title text wrapped
+  // badly and action buttons got cramped.
+  // After: stack vertical on @container <28rem (448px), row on ≥28rem.
+  // Title + description take full width on mobile; action drops to its
+  // own row. Backward compatible — desktop (≥448px container) unchanged.
+  // Note: `@md:` (28rem) not `@sm:` (24rem) because preview mobile
+  // container = 384px (24rem), and we want stack-col at that width.
   return (
-    <div className="mb-5 flex items-start justify-between gap-3">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+    <div className="mb-5 flex flex-col @md:flex-row @md:items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-lg @md:text-xl font-bold tracking-tight">{title}</h2>
         {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1 text-xs @md:text-sm text-muted-foreground">{description}</p>
         )}
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
