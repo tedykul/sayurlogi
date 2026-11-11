@@ -302,97 +302,109 @@ export function OrderEditor() {
                 transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.3) }}
               >
                 <AdminCard className="py-3">
-                  {/* Header row */}
-                  <div className="flex items-center gap-3">
-                    {/* Expand toggle */}
-                    <button
-                      onClick={() => toggleExpand(order.id)}
-                      className="text-muted-foreground hover:text-foreground shrink-0"
-                      aria-label={expandedId === order.id ? "Tutup detail" : "Buka detail"}
-                    >
-                      {expandedId === order.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </button>
-
-                    {/* Tracking ID + customer */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-sm font-mono font-bold text-primary">
-                          {order.trackingId}
-                        </code>
-                        <Badge className={cn("text-xs font-medium", ORDER_STATUS_COLORS[order.status])}>
-                          {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
-                        </Badge>
-                        {/* Payment status badge (only show if not COD + payment exists) */}
-                        {order.payment && order.payment.method !== "cod" && (
-                          <Badge
-                            className={cn(
-                              "text-xs font-medium",
-                              order.payment.status === "paid"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                : order.payment.status === "pending_verification"
-                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                                  : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {order.payment.status === "paid"
-                              ? `✓ Lunas ${order.payment.paidAt ? new Date(order.payment.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : ""}`
-                              : order.payment.status === "pending_verification"
-                                ? "💰 Perlu Verifikasi"
-                                : `⏳ ${order.payment.status}`}
-                          </Badge>
+                  {/* Header row — Phase 1 fix: container-query responsive.
+                      Before: `flex items-center gap-3` single-row → tracking ID +
+                      badges + meta + Select/Verify button cramped on mobile.
+                      After: stack 2-row on narrow container (<448px), 1-row on wider. */}
+                  <div className="flex flex-col @md:flex-row @md:items-center gap-3">
+                    {/* Row 1 (mobile) / Left (desktop): expand toggle + tracking + meta */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Expand toggle */}
+                      <button
+                        onClick={() => toggleExpand(order.id)}
+                        className="text-muted-foreground hover:text-foreground shrink-0"
+                        aria-label={expandedId === order.id ? "Tutup detail" : "Buka detail"}
+                      >
+                        {expandedId === order.id ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
                         )}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span>{order.customerName}</span>
-                        <span>· {order.items.length} item</span>
-                        <span>· {formatIDR(order.total)}</span>
-                        <span>· {new Date(order.createdAt).toLocaleString("id-ID", {
-                          day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                        })}</span>
+                      </button>
+
+                      {/* Tracking ID + customer */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="text-sm font-mono font-bold text-primary whitespace-nowrap">
+                            {order.trackingId}
+                          </code>
+                          <Badge className={cn("text-xs font-medium shrink-0", ORDER_STATUS_COLORS[order.status])}>
+                            {ORDER_STATUS_ICONS[order.status]} {ORDER_STATUS_LABELS[order.status]}
+                          </Badge>
+                          {/* Payment status badge (only show if not COD + payment exists) */}
+                          {order.payment && order.payment.method !== "cod" && (
+                            <Badge
+                              className={cn(
+                                "text-xs font-medium shrink-0",
+                                order.payment.status === "paid"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                  : order.payment.status === "pending_verification"
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : "bg-muted text-muted-foreground"
+                              )}
+                            >
+                              {order.payment.status === "paid"
+                                ? `✓ Lunas ${order.payment.paidAt ? new Date(order.payment.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : ""}`
+                                : order.payment.status === "pending_verification"
+                                  ? "💰 Perlu Verifikasi"
+                                  : `⏳ ${order.payment.status}`}
+                            </Badge>
+                          )}
+                        </div>
+                        {/* Meta info — Phase 1: gap-x-2 @md:gap-x-3 (was gap-x-3 only),
+                            whitespace-nowrap per span prevent orphan '·' bullet. */}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 @md:gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          <span className="whitespace-nowrap">{order.customerName}</span>
+                          <span className="whitespace-nowrap">· {order.items.length} item</span>
+                          <span className="whitespace-nowrap">· {formatIDR(order.total)}</span>
+                          <span className="whitespace-nowrap">· {new Date(order.createdAt).toLocaleString("id-ID", {
+                            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                          })}</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Verify payment button (only for pending_verification) OR Quick status update */}
-                    {order.payment?.status === "pending_verification" ? (
-                      <Button
-                        size="sm"
-                        onClick={() => handleVerifyPayment(order.id)}
-                        disabled={verifyingId === order.id}
-                        className="h-8 rounded-lg text-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
-                      >
-                        {verifyingId === order.id ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        )}
-                        Konfirmasi Bayar
-                      </Button>
-                    ) : (
-                      <Select
-                        value={order.status}
-                        onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
-                        disabled={updatingId === order.id}
-                      >
-                        <SelectTrigger className="w-[140px] h-8 rounded-lg text-xs shrink-0">
-                          {updatingId === order.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                    {/* Row 2 (mobile) / Right (desktop): Verify payment button OR Quick status update.
+                        On mobile: full width row, justify-end.
+                        On desktop (@md+): shrink-0, inline with content. */}
+                    <div className="flex justify-end @md:shrink-0">
+                      {order.payment?.status === "pending_verification" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handleVerifyPayment(order.id)}
+                          disabled={verifyingId === order.id}
+                          className="h-8 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          {verifyingId === order.id ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                           ) : (
-                            <SelectValue />
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
                           )}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                          Konfirmasi Bayar
+                        </Button>
+                      ) : (
+                        <Select
+                          value={order.status}
+                          onValueChange={(v) => handleUpdateStatus(order.id, v as OrderStatus)}
+                          disabled={updatingId === order.id}
+                        >
+                          <SelectTrigger className="w-full @md:w-[140px] h-8 rounded-lg text-xs">
+                            {updatingId === order.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(ORDER_STATUS_FLOW as OrderStatus[]).concat(["cancelled"]).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {ORDER_STATUS_ICONS[s]} {ORDER_STATUS_LABELS[s]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   </div>
 
                   {/* Expanded details */}
