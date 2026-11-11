@@ -9,7 +9,7 @@ import {
   Home, Sparkles, Phone, HelpCircle, Users, MessageSquare,
   Layers, PanelBottom, PanelTop, ScrollText, Package, Palette,
   ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck, Globe,
-  Smartphone, Tablet, Monitor,
+  Smartphone, Tablet, Monitor, Eye, EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -555,6 +555,10 @@ function LoginGate({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Show/hide password toggle — helps user verify what they typed,
+  // especially on mobile where autocorrect + masked dots make errors
+  // common (user report: "password admin salah" → often a typo).
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -633,19 +637,34 @@ function LoginGate({
             <Label htmlFor="admin-password" className="text-xs font-medium">
               Password Admin
             </Label>
-            <Input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="Masukkan password..."
-              disabled={loading}
-              autoFocus={!email}
-              aria-invalid={!!error}
-            />
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="Masukkan password..."
+                disabled={loading}
+                autoFocus={!email}
+                aria-invalid={!!error}
+                className="pl-9 pr-10"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground"
+                tabIndex={-1}
+                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           {error && (

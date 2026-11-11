@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Loader2, Search, RefreshCw, Plus, Pencil, Trash2, UserCog, AlertCircle,
-  X, ShieldCheck, ShieldUser, User, Mail, Power, Save,
+  X, ShieldCheck, ShieldUser, User, Mail, Power, Save, Eye, EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -503,6 +503,7 @@ function UserModal({ mode, initial, isSelf, onClose, onSubmit }: UserModalProps)
   const [email, setEmail] = useState(initial?.email ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<AdminRole>(initial?.role ?? "staff");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [saving, setSaving] = useState(false);
@@ -587,13 +588,26 @@ function UserModal({ mode, initial, isSelf, onClose, onSubmit }: UserModalProps)
             required={mode === "create"}
             hint={mode === "edit" ? "Kosongkan jika tidak ingin ganti password" : undefined}
           >
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimal 6 karakter"
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                autoComplete="new-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground"
+                tabIndex={-1}
+                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </AdminField>
 
           <AdminField label="Role">
