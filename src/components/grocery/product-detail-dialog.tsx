@@ -284,42 +284,12 @@ function ProductDetailContent({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* ============ Swipe navigation arrows (desktop + touch fallback) ============ */}
-      {canNavigate && (
-        <>
-          <button
-            onClick={onPrev}
-            disabled={!hasPrev}
-            aria-label="Produk sebelumnya"
-            className={cn(
-              "absolute left-1 top-1/2 z-20 -translate-y-1/2",
-              "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-background/80 backdrop-blur-sm border border-border/60 shadow-md",
-              "transition-all hover:bg-background hover:scale-110",
-              "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            )}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={onNext}
-            disabled={!hasNext}
-            aria-label="Produk berikutnya"
-            className={cn(
-              "absolute right-1 top-1/2 z-20 -translate-y-1/2",
-              "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-background/80 backdrop-blur-sm border border-border/60 shadow-md",
-              "transition-all hover:bg-background hover:scale-110",
-              "disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            )}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-      {/* ============ Left: visual ============ */}
+      {/* ============ Swipe navigation arrows ============
+          MOVED INSIDE each visual column (mobile + desktop) below.
+          Previously these were positioned relative to the whole grid
+          → vertical center landed on the price section, overlapping
+          "Rp XX.XXX". Now they overlay only the product image. */}
+      {/* ============ Left: visual (desktop) ============ */}
       <div className="relative hidden md:block bg-gradient-to-br from-secondary/40 via-secondary/20 to-background border-r border-border/40">
         <div className="flex h-full min-h-[400px] items-center justify-center p-8">
           <motion.div
@@ -351,6 +321,43 @@ function ProductDetailContent({
             </Badge>
           </div>
         )}
+        {/* Desktop carousel arrows — overlay image, vertically centered.
+            Polish: solid bg for visibility on busy images, larger 44px
+            touch target, primary ring on hover for affordance. */}
+        {canNavigate && (
+          <>
+            <button
+              onClick={onPrev}
+              disabled={!hasPrev}
+              aria-label="Produk sebelumnya"
+              className={cn(
+                "absolute left-3 top-1/2 z-20 -translate-y-1/2",
+                "flex h-11 w-11 items-center justify-center rounded-full",
+                "bg-background/95 backdrop-blur-sm border border-border shadow-lg",
+                "transition-all hover:bg-background hover:scale-110 hover:border-primary/40",
+                "disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:scale-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              )}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onNext}
+              disabled={!hasNext}
+              aria-label="Produk berikutnya"
+              className={cn(
+                "absolute right-3 top-1/2 z-20 -translate-y-1/2",
+                "flex h-11 w-11 items-center justify-center rounded-full",
+                "bg-background/95 backdrop-blur-sm border border-border shadow-lg",
+                "transition-all hover:bg-background hover:scale-110 hover:border-primary/40",
+                "disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:scale-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              )}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* ============ Right: info + actions ============ */}
@@ -380,6 +387,44 @@ function ProductDetailContent({
                 <Leaf className="h-2.5 w-2.5 mr-0.5" /> Organik
               </Badge>
             </div>
+          )}
+          {/* Mobile carousel arrows — overlay image area only.
+              Scoped to this mobile visual header div (relative parent),
+              so vertical center lands on the 160×160 image, NOT on the
+              price section below. Touch-friendly 36px target. */}
+          {canNavigate && (
+            <>
+              <button
+                onClick={onPrev}
+                disabled={!hasPrev}
+                aria-label="Produk sebelumnya"
+                className={cn(
+                  "absolute left-1 top-1/2 z-20 -translate-y-1/2",
+                  "flex h-9 w-9 items-center justify-center rounded-full",
+                  "bg-background/95 backdrop-blur-sm border border-border shadow-md",
+                  "transition-all active:scale-95 hover:bg-background hover:border-primary/40",
+                  "disabled:opacity-20 disabled:cursor-not-allowed",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                )}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={onNext}
+                disabled={!hasNext}
+                aria-label="Produk berikutnya"
+                className={cn(
+                  "absolute right-1 top-1/2 z-20 -translate-y-1/2",
+                  "flex h-9 w-9 items-center justify-center rounded-full",
+                  "bg-background/95 backdrop-blur-sm border border-border shadow-md",
+                  "transition-all active:scale-95 hover:bg-background hover:border-primary/40",
+                  "disabled:opacity-20 disabled:cursor-not-allowed",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                )}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
           )}
           {/* Swipe hint — subtle dots showing position in product list (mobile) */}
           {canNavigate && (hasPrev || hasNext) && (
