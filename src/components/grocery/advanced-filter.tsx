@@ -78,7 +78,17 @@ export function AdvancedFilter({ products, filter, onChange }: AdvancedFilterPro
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="h-9 rounded-full text-sm gap-1.5"
+          // Phase 3 polish: Filter button made prominent (was: same style as
+          // sort dropdown — visually equal weight with category chips, weak
+          // hierarchy). Now: border-2 + font-semibold to signal it's an
+          // ACTION button (Tokopedia pattern). When filter active, border
+          // turns primary green for extra emphasis.
+          className={cn(
+            "h-9 rounded-full text-sm gap-1.5 border-2 font-semibold",
+            hasActiveFilter
+              ? "border-primary text-primary hover:bg-primary/5"
+              : "border-foreground/30 hover:border-foreground/50"
+          )}
           aria-label="Filter lanjutan"
         >
           <SlidersHorizontal className="h-4 w-4" />

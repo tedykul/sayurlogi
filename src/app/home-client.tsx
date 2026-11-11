@@ -341,6 +341,16 @@ export function HomeClient({ content }: HomeClientProps) {
                     categories={categories}
                     active={activeCategory}
                     onChange={handleCategoryChange}
+                    // Phase 2: pass product count per category so active pill
+                    // shows count badge (Shopee/Tokopedia pattern). Computed
+                    // from already-fetched products array — no extra API call.
+                    productCounts={(() => {
+                      const counts: Record<string, number> = {};
+                      for (const p of products) {
+                        if (p.category) counts[p.category] = (counts[p.category] || 0) + 1;
+                      }
+                      return counts;
+                    })()}
                   />
                 </div>
                 {/* Sort + filter — compact */}
