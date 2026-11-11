@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import { ProductCard } from "./product-card";
 import type { Product } from "@/types/grocery";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,12 +12,16 @@ interface ProductGridProps {
   source: "erpnext" | "db" | "mock" | null;
   /** Forwarded to each ProductCard. Optional for backward compat. */
   onOpenDetail?: (product: Product) => void;
+  /** Phase 4: reset filter callback for empty state.
+   *  When provided, shows "Reset Filter" button in empty state.
+   *  Backward compatible: optional, button hidden if undefined. */
+  onReset?: () => void;
 }
 
 const INITIAL_COUNT = 8;
 const LOAD_MORE_COUNT = 8;
 
-export function ProductGrid({ products, loading, source, onOpenDetail }: ProductGridProps) {
+export function ProductGrid({ products, loading, source, onOpenDetail, onReset }: ProductGridProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -88,12 +91,51 @@ export function ProductGrid({ products, loading, source, onOpenDetail }: Product
 
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border py-16 text-center">
-        <span className="text-4xl">🔍</span>
-        <h3 className="text-base font-semibold">Produk tidak ditemukan</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Coba ubah kata kunci pencarian atau pilih kategori lain.
-        </p>
+      // Phase 4: polished empty state with SVG illustration + reset CTA.
+      // Before: plain text "Produk tidak ditemukan" + 1 emoji.
+      // After: friendly illustration + clear hierarchy + actionable button.
+      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-secondary/20 py-16 px-6 text-center">
+        {/* SVG illustration — basket with sparse items, conveys "empty" */}
+        <svg
+          viewBox="0 0 120 120"
+          className="h-24 w-24 text-muted-foreground/50"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          {/* Basket handle */}
+          <path d="M30 50 Q60 20 90 50" />
+          {/* Basket body */}
+          <path d="M25 50 L95 50 L88 95 Q88 100 83 100 L37 100 Q32 100 32 95 Z" />
+          {/* Sparse items inside (just dots, suggesting "few items") */}
+          <circle cx="50" cy="65" r="3" />
+          <circle cx="70" cy="70" r="3" />
+          {/* Search magnifier overlay — conveys "searched but not found" */}
+          <circle cx="60" cy="55" r="14" className="opacity-40" />
+          <path d="M70 65 L78 73" className="opacity-40" />
+        </svg>
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold">Produk tidak ditemukan</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Coba ubah kata kunci pencarian atau pilih kategori lain.
+          </p>
+        </div>
+        {/* Phase 4: actionable reset button — clears search + category.
+            Caller can pass onReset prop; if not provided, button hidden
+            (backward compatible). */}
+        {onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-transform active:scale-95 hover:bg-primary/90"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Filter
+          </button>
+        )}
       </div>
     );
   }

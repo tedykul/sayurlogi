@@ -399,6 +399,15 @@ export function HomeClient({ content }: HomeClientProps) {
               loading={loading}
               source={source}
               onOpenDetail={handleOpenDetail}
+              // Phase 4: reset filter when no products match (clears search +
+              // category + advanced filter so user sees all products again).
+              onReset={() => {
+                setSearchQuery("");
+                setActiveCategory(null);
+                setFilter(DEFAULT_FILTER);
+                setSort("popular");
+                toast.info("Filter direset — menampilkan semua produk");
+              }}
             />
           </div>
         </section>
