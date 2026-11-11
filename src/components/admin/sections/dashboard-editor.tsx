@@ -195,8 +195,8 @@ export function DashboardEditor() {
             <div className="mt-2 h-4 w-64 animate-pulse rounded bg-secondary/70" />
           </div>
         </div>
-        {/* Skeleton KPI cards — match production grid (Phase 2 responsive) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Skeleton KPI cards — match production grid (Phase 2 responsive + Container Queries) */}
+        <div className="grid grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
@@ -207,12 +207,12 @@ export function DashboardEditor() {
             />
           ))}
         </div>
-        {/* Skeleton charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-[280px] animate-pulse rounded-xl bg-secondary/50" />
+        {/* Skeleton charts — Container Queries (responsive to preview width) */}
+        <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+          <div className="@lg:col-span-2 h-[280px] animate-pulse rounded-xl bg-secondary/50" />
           <div className="h-[280px] animate-pulse rounded-xl bg-secondary/50" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
           <div className="h-[280px] animate-pulse rounded-xl bg-secondary/50" />
           <div className="h-[280px] animate-pulse rounded-xl bg-secondary/50" />
         </div>
@@ -260,12 +260,15 @@ export function DashboardEditor() {
       </div>
 
       {/* === KPI Cards ===
-          Phase 2: grid-cols-1 sm:grid-cols-2 md:grid-cols-4
-          (was: grid-cols-2 md:grid-cols-4 → 2 cols at 326px mobile
-          content area = ~140px per card, cramped + text wrap messy).
-          Single column at <640px gives each KPI card full width,
-          more readable. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          Phase 2 + Container Queries: grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4
+          (was: grid-cols-1 sm:grid-cols-2 md:grid-cols-4 → uses viewport
+          width, ignored by admin preview mobile toggle).
+          Container query breakpoints (@) respond to the @container wrapper
+          in admin-overlay.tsx. So when admin sets previewWidth=mobile
+          (375px container), this grid collapses to 1 col — proper mobile
+          preview. Mobile real device (viewport <640px) also gets 1 col.
+          Tablet (640-1024px container) → 2 cols. Desktop (>1024px) → 4. */}
+      <div className="grid grid-cols-1 @sm:grid-cols-2 @lg:grid-cols-4 gap-3">
         <KpiCard
           title="Total Revenue"
           value={formatIDR(stats.totalRevenue)}
@@ -298,10 +301,12 @@ export function DashboardEditor() {
         />
       </div>
 
-      {/* === Charts Row 1: Revenue Trend + Status Donut === */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue 7 days — Area chart (2 cols) */}
-        <AdminCard className="lg:col-span-2">
+      {/* === Charts Row 1: Revenue Trend + Status Donut ===
+          Container Queries: @lg:grid-cols-3 (was lg:grid-cols-3) so
+          charts stack vertical when preview container is narrow. */}
+      <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+        {/* Revenue 7 days — Area chart (2 cols on large container) */}
+        <AdminCard className="@lg:col-span-2">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -387,7 +392,9 @@ export function DashboardEditor() {
               🔄 Status Pesanan
             </h3>
             <p className="text-xs text-muted-foreground mb-3">Distribusi semua order</p>
-            <div className="h-[180px] w-full">
+            {/* Phase 3: chart height 200px (was 180) for donut + label space.
+                Radius as percentage (was fixed 45/75) so scales with container. */}
+            <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -396,8 +403,8 @@ export function DashboardEditor() {
                     nameKey="label"
                     cx="50%"
                     cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
+                    innerRadius="35%"
+                    outerRadius="65%"
                     paddingAngle={2}
                   >
                     {stats.ordersByStatus
@@ -423,19 +430,21 @@ export function DashboardEditor() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
+            {/* Phase 3: legend gap-2 + min-w-0 + truncate (was "Menunggu3"
+                with no space between label and count). */}
             <div className="mt-2 space-y-1">
               {stats.ordersByStatus
                 .filter((s) => s.count > 0)
                 .map((s) => (
-                  <div key={s.status} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
+                  <div key={s.status} className="flex items-center justify-between text-xs gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: s.color }}
                       />
-                      <span className="text-muted-foreground">{s.label}</span>
+                      <span className="text-muted-foreground truncate">{s.label}</span>
                     </div>
-                    <span className="font-medium text-foreground">{s.count}</span>
+                    <span className="font-medium text-foreground shrink-0 ml-2">{s.count}</span>
                   </div>
                 ))}
             </div>
@@ -443,8 +452,9 @@ export function DashboardEditor() {
         </AdminCard>
       </div>
 
-      {/* === Charts Row 2: Top Products + Category Pie === */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* === Charts Row 2: Top Products + Category Pie ===
+          Container Queries: @lg:grid-cols-2 */}
+      <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
         {/* Top 5 products — Horizontal bar */}
         <AdminCard>
           <div className="p-4">
@@ -536,7 +546,7 @@ export function DashboardEditor() {
                       nameKey="category"
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
+                      outerRadius="70%"
                       label={({ category, percent }) =>
                         `${category} ${((percent || 0) * 100).toFixed(0)}%`
                       }
@@ -572,8 +582,9 @@ export function DashboardEditor() {
         </AdminCard>
       </div>
 
-      {/* === Lists Row: Recent Orders + Low Stock === */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* === Lists Row: Recent Orders + Low Stock ===
+          Container Queries: @lg:grid-cols-2 */}
+      <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
         {/* Recent orders */}
         <AdminCard>
           <div className="p-4">
@@ -973,8 +984,9 @@ export function DashboardEditor() {
         </div>
       </AdminCard>
 
-      {/* Customer Growth + Delivery Method — 2 cols */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Customer Growth + Delivery Method — 2 cols
+          Container Queries: @lg:grid-cols-2 */}
+      <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
         {/* Customer Growth — Line chart */}
         <AdminCard>
           <div className="p-4">
@@ -1058,8 +1070,8 @@ export function DashboardEditor() {
                       nameKey="label"
                       cx="50%"
                       cy="50%"
-                      innerRadius={45}
-                      outerRadius={75}
+                      innerRadius="35%"
+                      outerRadius="65%"
                       paddingAngle={2}
                       label={({ label, count }) => `${label}: ${count}`}
                       labelLine={false}
@@ -1129,28 +1141,34 @@ function KpiCard({
       <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]" />
 
       <div className="relative z-10">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-white/80">{title}</p>
-          <div className="rounded-lg bg-white/20 p-1.5 backdrop-blur-sm">{icon}</div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-white/80 truncate">{title}</p>
+          <div className="rounded-lg bg-white/20 p-1.5 backdrop-blur-sm shrink-0">{icon}</div>
         </div>
-        <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
+        {/* Value: responsive font (smaller on narrow container) + truncate
+            for long "Rp X.000.000" values + tabular-nums for digit alignment.
+            Phase 2 fix: was text-xl only → "Rp 81.000" overflowed card. */}
+        <p className="mt-2 text-lg @sm:text-xl font-bold tracking-tight tabular-nums truncate">
+          {value}
+        </p>
         {trend && (
-          <div className="mt-1 flex items-center gap-1 text-xs">
+          <div className="mt-1 flex items-center gap-1 text-xs min-w-0">
             {isPositiveTrend ? (
-              <TrendingUp className="h-3 w-3 text-white/90" />
+              <TrendingUp className="h-3 w-3 text-white/90 shrink-0" />
             ) : (
-              <TrendingDown className="h-3 w-3 text-white/90" />
+              <TrendingDown className="h-3 w-3 text-white/90 shrink-0" />
             )}
-            <span className="font-medium text-white/90">
+            <span className="font-medium text-white/90 shrink-0">
               {isPositiveTrend ? "+" : ""}{trend.value}%
             </span>
-            <span className="text-white/60">{trend.label}</span>
+            {/* Trend label: truncate (was "Tren ming..." cut off mid-word) */}
+            <span className="text-white/60 truncate">{trend.label}</span>
           </div>
         )}
         {subtitle && !trend && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-white/70">
+          <p className="mt-1 flex items-center gap-1 text-xs text-white/70 truncate">
             {subtitleIcon}
-            {subtitle}
+            <span className="truncate">{subtitle}</span>
           </p>
         )}
       </div>

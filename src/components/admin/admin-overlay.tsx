@@ -553,7 +553,17 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
               {/* Content area — target of the skip link above.
                   Width is constrained by the preview frame toggle
                   (mobile/tablet/full). When constrained, content is
-                  centered with a subtle backdrop to show the boundary. */}
+                  centered with a subtle backdrop to show the boundary.
+
+                  Phase 1 (Container Queries): `@container` class enables
+                  Tailwind v4 container queries. Children using `@sm:`,
+                  `@md:`, `@lg:` breakpoints now respond to THIS
+                  container's width (preview frame), not the viewport.
+                  So when admin toggles preview to "mobile" (375px), the
+                  KPI grid + chart grids inside will actually collapse to
+                  1 column — even though the browser viewport is still
+                  desktop-wide. Previously the grids stayed at md:grid-cols-4
+                  because viewport ≥768px, making preview mobile useless. */}
               <div
                 id="admin-main-content"
                 className={cn(
@@ -562,7 +572,14 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
                 )}
                 tabIndex={-1}
               >
-                <div className={cn("mx-auto", PREVIEW_WIDTHS[previewWidth].maxWidth)}>
+                {/* Phase 1 fix (revised): @container lives on the inner
+                    wrapper that's actually constrained by previewWidth,
+                    NOT on the outer admin-main-content (whose width stays
+                    ~1248px regardless of preview toggle). Container query
+                    children (@sm:, @lg:) now respond to the actual visible
+                    content width: 375px when preview=mobile, 768px tablet,
+                    unlimited when full. */}
+                <div className={cn("@container mx-auto", PREVIEW_WIDTHS[previewWidth].maxWidth)}>
                   {previewWidth !== "full" && (
                     <p className="mb-3 text-center text-xs font-medium text-muted-foreground">
                       📱 Preview {PREVIEW_WIDTHS[previewWidth].label} — {PREVIEW_WIDTHS[previewWidth].px}
