@@ -189,50 +189,61 @@ export function CategoryEditor() {
                 ) : (
                   <AdminCard
                     className={cn(
-                      "flex items-center gap-3 transition-all",
+                      "flex flex-col @md:flex-row @md:items-center gap-3 transition-all",
                       draggingId === item.id && "opacity-40 scale-[0.98]",
                       dropTargetId === item.id && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                     )}
                   >
-                    <div className="flex flex-col shrink-0">
-                      <button onClick={() => handleReorder(item, "up")} disabled={i === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Naik">
-                        <ChevronUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, item)}
-                        onDragEnd={handleDragEnd}
-                        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
-                        aria-label="Seret untuk mengurutkan ulang"
-                        title="Seret untuk mengurutkan ulang"
-                      >
-                        <GripVertical className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleReorder(item, "down")} disabled={i === items.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Turun">
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div
-                      className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-lg", item.gradient)}
-                      onDragOver={(e) => handleDragOver(e, item)}
-                      onDragLeave={() => handleDragLeave(item)}
-                      onDrop={(e) => handleDrop(e, item)}
-                    >
-                      {item.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">{item.name}</h3>
-                        <Badge variant={item.published ? "default" : "secondary"} className="text-xs">
-                          {item.published ? "Live" : "Hidden"}
-                        </Badge>
+                    {/* Row 1 (mobile) / Left (desktop): drag handle + emoji + content.
+                        flex-1 + min-w-0 so name can truncate properly (was "Sa..." cut off
+                        because actions forced shrink-0 on the same row). */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="flex flex-col shrink-0">
+                        <button onClick={() => handleReorder(item, "up")} disabled={i === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Naik">
+                          <ChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, item)}
+                          onDragEnd={handleDragEnd}
+                          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+                          aria-label="Seret untuk mengurutkan ulang"
+                          title="Seret untuk mengurutkan ulang"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => handleReorder(item, "down")} disabled={i === items.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Turun">
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
                       </div>
-                      {item.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
-                      )}
+                      <div
+                        className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-lg", item.gradient)}
+                        onDragOver={(e) => handleDragOver(e, item)}
+                        onDragLeave={() => handleDragLeave(item)}
+                        onDrop={(e) => handleDrop(e, item)}
+                      >
+                        {item.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {/* Phase fix: truncate name (was cut off mid-word "Sa..." because
+                            no truncate + actions squeezed content). + min-w-0 on parent so
+                            flexbox knows this is the truncation point. */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="text-sm font-semibold truncate">{item.name}</h3>
+                          <Badge variant={item.published ? "default" : "secondary"} className="text-xs shrink-0">
+                            {item.published ? "Live" : "Hidden"}
+                          </Badge>
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
+                    {/* Row 2 (mobile) / Right (desktop): action buttons.
+                        On mobile: full width row, justify-end (was overflow keluar card).
+                        On desktop (@md+): shrink-0, inline with content. */}
+                    <div className="flex gap-1.5 @md:shrink-0 justify-end @md:justify-start">
                       <Button size="sm" variant="outline" onClick={() => setEditing(item)} className="h-7 text-xs">
                         <Pencil className="h-3 w-3 mr-1" />
                         Edit
