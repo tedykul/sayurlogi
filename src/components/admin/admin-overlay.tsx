@@ -204,6 +204,15 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
     }
   }, [previewWidth]);
 
+  // Reset previewMode when overlay is closed externally (e.g. parent
+  // sets open=false via footer button, or page navigation). Prevents
+  // stale preview state lingering into the next open.
+  useEffect(() => {
+    if (!open && previewMode) {
+      setPreviewMode(false);
+    }
+  }, [open, previewMode]);
+
   // On mount: always validate the session against the server.
   // The httpOnly cookie is sent automatically; if valid, populate
   // user + keep authed=true. If invalid, clear the UI cache so the
@@ -229,19 +238,32 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   }, [mounted]);
 
   // Keyboard shortcut: Ctrl+Shift+A toggles admin
+  // Edge case (Phase 3 polish): if user is in previewMode (overlay
+  // minimized to FAB), Ctrl+Shift+A should RESTORE the overlay (exit
+  // preview) instead of closing admin entirely. Otherwise pressing
+  // the shortcut while previewing would close admin + leave previewMode
+  // stuck on → next open lands straight back in preview without showing
+  // the editor. Esc is similar: in previewMode it exits preview (handled
+  // by PreviewFab's own listener), so the global Esc handler skips when
+  // previewMode is true to avoid double-action (close admin + leave
+  // previewMode dangling).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === "A") {
         e.preventDefault();
-        onOpenChange(!open);
+        if (previewMode) {
+          setPreviewMode(false);
+        } else {
+          onOpenChange(!open);
+        }
       }
-      if (e.key === "Escape" && open) {
+      if (e.key === "Escape" && open && !previewMode) {
         onOpenChange(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onOpenChange]);
+  }, [open, onOpenChange, previewMode]);
 
   // Focus trap (E-audit): the overlay is role="dialog" aria-modal="true",
   // so keyboard focus must stay inside while open (WCAG 2.4.3).
@@ -289,6 +311,7 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
     await logoutAdmin();
     setUser(null);
     setAuthed(false);
+    setPreviewMode(false); // clear preview state on logout
     toast.success("Logged out dari admin");
   };
 
