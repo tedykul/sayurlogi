@@ -795,26 +795,38 @@ export function DashboardEditor() {
             </div>
           ) : (
             <>
-              <div className="h-[180px] md:h-[220px] w-full">
+              {/* Phase fix: chart height 200px (was 180 too short
+                  for bar + X-axis labels in narrow container). */}
+              <div className="h-[200px] md:h-[220px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={stats.stockByCategory.map((c, i) => ({
                       ...c,
                       fill: CHART_COLORS[i % CHART_COLORS.length],
                     }))}
-                    margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                    {/* Phase fix: interval + minTickGap + fontSize 10 to
+                        prevent X-axis label overlap (was 4 labels cramped,
+                        only 3 visible with 1 missing). */}
                     <XAxis
                       dataKey="category"
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      tick={{ fontSize: 10, fill: "#6b7280" }}
                       tickLine={false}
                       axisLine={false}
+                      interval="preserveStartEnd"
+                      minTickGap={4}
                     />
+                    {/* Phase fix: Y-axis domain with 15% headroom (was
+                        auto-fit too tight → bar 2741 nabrak ceiling 2800).
+                        width 32 reserves space for '0k'-'3k' labels. */}
                     <YAxis
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      tick={{ fontSize: 10, fill: "#6b7280" }}
                       tickLine={false}
                       axisLine={false}
+                      width={32}
+                      domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)] as [number, (v: number) => number]}
                     />
                     <Tooltip
                       content={({ active, payload }) => {
@@ -835,7 +847,9 @@ export function DashboardEditor() {
                         );
                       }}
                     />
-                    <Bar dataKey="stock" radius={[6, 6, 0, 0]}>
+                    {/* Phase fix: maxBarSize 60 for consistent bar width
+                        (was: bar 1 lebar, lain sempit karena auto-fit). */}
+                    <Bar dataKey="stock" radius={[6, 6, 0, 0]} maxBarSize={60}>
                       {stats.stockByCategory.map((c, i) => (
                         <Cell key={c.category} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                       ))}
@@ -843,25 +857,33 @@ export function DashboardEditor() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              {/* Detail table */}
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+              {/* Detail table — Phase fix: container query (was md:grid-cols-4
+                  viewport-based → cramped 4-col in preview mobile 375px).
+                  Now: 2 cols on mobile, 4 cols on @md+ (448px+ container). */}
+              <div className="mt-3 grid grid-cols-2 @md:grid-cols-4 gap-2">
                 {stats.stockByCategory.map((c, i) => (
                   <div
                     key={c.category}
-                    className="rounded-lg border border-border/60 bg-secondary/30 p-2"
+                    className="rounded-lg border border-border/60 bg-secondary/30 p-2 min-w-0"
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                       />
                       <span className="text-xs font-medium text-foreground truncate">
                         {c.category}
                       </span>
                     </div>
-                    <p className="mt-1 text-lg font-bold text-foreground">{c.stock}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {c.productCount} produk · {formatIDR(c.value)}
+                    <p className="mt-1 text-lg font-bold text-foreground tabular-nums">{c.stock}</p>
+                    {/* Phase fix: split productCount and value to separate
+                        lines (was '11 produk · Rp 8.406.000' wrap to orphan
+                        '·' bullet). whitespace-nowrap + tabular-nums. */}
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      {c.productCount} produk
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums whitespace-nowrap truncate">
+                      {formatIDR(c.value)}
                     </p>
                   </div>
                 ))}
