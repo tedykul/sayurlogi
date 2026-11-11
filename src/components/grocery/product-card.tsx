@@ -50,10 +50,21 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "-30px" }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
+      // Phase 5: enhanced stagger animation.
+      // Before: delay max 0.3s (cap too low, big grids all animate together).
+      // After: stagger up to 0.5s with spring transition for more natural
+      // "cascade" feel when products load. Cards stagger by row (4 per row
+      // on desktop, 2 on mobile) so visual rhythm is preserved.
+      transition={{
+        duration: 0.4,
+        delay: Math.min(index * 0.04, 0.5),
+        type: "spring",
+        stiffness: 200,
+        damping: 20,
+      }}
       className="group relative flex flex-col rounded-2xl bg-card shadow-sm ring-1 ring-border/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10 hover:ring-primary/30"
     >
       {/* Image — photo-forward, no border, rounded top */}
