@@ -321,9 +321,13 @@ export function DashboardEditor() {
                 <p className="text-xs text-muted-foreground">Total minggu ini</p>
               </div>
             </div>
-            <div className="h-[220px] w-full">
+            {/* Phase 3: responsive chart height (180px mobile, 220px md+)
+                + YAxis margin left:8 (was 0 → label "0k" nempel ke tepi
+                kiri, terpotong). XAxis interval="preserveStartEnd"
+                prevents label overlap when chart width is narrow. */}
+            <div className="h-[180px] md:h-[220px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.revenueLast7Days} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart data={stats.revenueLast7Days} margin={{ top: 5, right: 10, left: 8, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
@@ -333,14 +337,17 @@ export function DashboardEditor() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    tick={{ fontSize: 10, fill: "#6b7280" }}
                     tickLine={false}
                     axisLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={8}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    tick={{ fontSize: 10, fill: "#6b7280" }}
                     tickLine={false}
                     axisLine={false}
+                    width={32}
                     tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
@@ -453,7 +460,7 @@ export function DashboardEditor() {
                 Belum ada penjualan
               </div>
             ) : (
-              <div className="h-[220px] w-full">
+              <div className="h-[180px] md:h-[220px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={topProductsColored}
@@ -520,7 +527,7 @@ export function DashboardEditor() {
                 Belum ada penjualan
               </div>
             ) : (
-              <div className="h-[220px] w-full">
+              <div className="h-[180px] md:h-[220px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -777,7 +784,7 @@ export function DashboardEditor() {
             </div>
           ) : (
             <>
-              <div className="h-[220px] w-full">
+              <div className="h-[180px] md:h-[220px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={stats.stockByCategory.map((c, i) => ({
