@@ -118,6 +118,17 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Phase 3 a11y: global focus-visible ring for all interactive elements
+     that don't have explicit focus styles (custom <button> in admin
+     sections, icon buttons, etc). shadcn Button/Input already have
+     their own focus-visible:ring-[3px] — this is a safety net for the
+     rest. WCAG 2.4.7 Focus Visible (AA). */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background rounded-sm;
+  }
   html {
     /* Sticky header (~69px) covers anchored content when user clicks nav
        links (#belanja, #faq, etc). scroll-padding-top reserves space so
