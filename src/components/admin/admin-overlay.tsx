@@ -9,7 +9,7 @@ import {
   Home, Sparkles, Phone, HelpCircle, Users, MessageSquare,
   Layers, PanelBottom, PanelTop, ScrollText, Package, Palette,
   ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck, Globe,
-  Smartphone, Tablet, Monitor, Eye, EyeOff,
+  Smartphone, Tablet, Monitor, Eye, EyeOff, Pencil, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,6 +183,13 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   // during hydration (avoid flash of login form when flag exists).
   const [mounted] = useState(() => typeof window !== "undefined");
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  // Preview Mode (Phase 1): when admin clicks "🔄 Preview", the overlay
+  // minimizes to a floating FAB so user can see the live storefront with
+  // their changes applied. All React state (authed, user, activeTab,
+  // form drafts in child components) is PRESERVED because the component
+  // stays mounted — only the rendered UI is swapped.
+  // See Phase 2 for the FAB itself.
+  const [previewMode, setPreviewMode] = useState(false);
   // Responsive preview frame (Phase 2): admin can constrain the
   // content area to mobile/tablet width to preview how content
   // editors look on smaller screens. Persisted in localStorage.
@@ -285,21 +292,48 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
     toast.success("Logged out dari admin");
   };
 
-  // Preview: refresh the storefront underneath WITHOUT closing the
-  // admin overlay (was window.location.reload() — full reload lost the
-  // admin session UI + active tab). router.refresh() re-renders the
-  // server components (page content from DB); the custom event tells
-  // HomeClient to re-fetch client-side data (products).
+  // Preview: refresh storefront + MINIMIZE overlay to FAB so user can
+  // actually SEE the changes (was: only router.refresh() + toast → user
+  // saw nothing change because overlay covered the storefront).
+  //
+  // State preservation guarantee: setting previewMode=true does NOT
+  // unmount AdminOverlayInner. The return null branch below only
+  // affects what's rendered. All useState values (authed, user,
+  // activeTab) + child component form drafts remain in memory. When
+  // user clicks the FAB to restore, previewMode=false → overlay fades
+  // back in with everything exactly as it was left.
+  //
+  // router.refresh() re-renders server components (page content from
+  // DB); the custom event tells HomeClient to re-fetch client-side
+  // data (products).
   const handlePreview = () => {
     router.refresh();
     window.dispatchEvent(new CustomEvent("sayurlogi:content-refresh"));
-    toast.success("Preview diperbarui", {
-      description: "Konten storefront dimuat ulang di bawah overlay.",
+    setPreviewMode(true);
+    toast.success("Preview aktif", {
+      description: "Klik tombol Admin di pojok untuk kembali edit.",
     });
   };
 
+  // Restore overlay from preview mode (called by the FAB in Phase 2).
+  // No re-fetch needed — state preserved during preview.
+  const handleExitPreview = () => {
+    setPreviewMode(false);
+  };
+
   // Don't render anything until mounted (avoid hydration flash)
+  // OR when previewMode is active → overlay minimized to FAB (Phase 2).
+  // Component state (authed, user, activeTab, child form drafts) is
+  // PRESERVED because the React tree stays mounted — only the DOM
+  // output is suppressed.
   if (!mounted || !open) return null;
+  if (previewMode) {
+    return (
+      <AnimatePresence>
+        <PreviewFab key="preview-fab" onRestore={handleExitPreview} />
+      </AnimatePresence>
+    );
+  }
 
   const canSeeAdminTabs = user?.role === "super_admin" || user?.role === "admin";
   const visibleGroups = TAB_GROUPS.map((g) => ({
@@ -516,6 +550,62 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
         )}
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// ============================================================
+// PreviewFab — floating button shown when admin is in Preview Mode.
+// ============================================================
+// Phase 2 of the preview-minimize feature. When admin clicks "🔄 Preview",
+// AdminOverlayInner returns <PreviewFab /> instead of the full overlay.
+// The storefront underneath is fully visible (overlay is hidden), and
+// this FAB floats at the bottom-right as the only visible "admin still
+// active" affordance.
+//
+// Click the FAB → onRestore() → AdminOverlayInner re-renders the full
+// overlay with all state preserved (authed, activeTab, form drafts).
+//
+// Keyboard: Esc restores the overlay (mirrors the dialog Esc pattern).
+//
+// z-index: 150 (above bottom nav z-40, below sub-modals z-200).
+// Mobile: bottom-20 (above the 64px bottom nav + safe area).
+// Desktop: bottom-6.
+// ============================================================
+
+interface PreviewFabProps {
+  onRestore: () => void;
+}
+
+function PreviewFab({ onRestore }: PreviewFabProps) {
+  // Esc key restores the overlay (matches dialog Esc-to-close convention).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onRestore();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onRestore]);
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onRestore}
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="fixed bottom-20 md:bottom-6 right-4 z-[150] flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg shadow-primary/40 hover:scale-105 active:scale-95 transition-transform"
+      aria-label="Kembali ke admin editor"
+      title="Klik untuk kembali edit (Esc juga bisa)"
+    >
+      <Pencil className="h-4 w-4" />
+      <span className="text-sm font-semibold">Admin</span>
+      {/* Pulse indicator — subtle "preview mode active" signal */}
+      <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" aria-hidden="true" />
+    </motion.button>
   );
 }
 
