@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAdminFetch } from "../admin-ui";
-import { AdminSectionHeading, AdminCard } from "../admin-ui";
+import { AdminCard } from "../admin-ui";
 import { formatIDR } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
@@ -195,8 +195,8 @@ export function DashboardEditor() {
             <div className="mt-2 h-4 w-64 animate-pulse rounded bg-secondary/70" />
           </div>
         </div>
-        {/* Skeleton KPI cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Skeleton KPI cards — match production grid (Phase 2 responsive) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
@@ -234,23 +234,23 @@ export function DashboardEditor() {
 
   return (
     <div className="space-y-4">
-      <AdminSectionHeading
-        title="📊 Dashboard"
-        description="Overview performa SayurLogi — 30 hari terakhir"
-      />
-
-      {/* === Colorful Header Banner === */}
+      {/* === Colorful Header Banner (also acts as page heading) ===
+          Phase 2: removed redundant <AdminSectionHeading> above this
+          card. Hero card already shows the dashboard title + revenue,
+          so a separate heading was duplicate (wasted 80px vertical on
+          mobile where space is precious). Hero card is more informative
+          (includes Total Revenue number) — keep it as the sole H2. */}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-5 text-white shadow-lg">
         <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]" />
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <h2 className="text-lg font-bold tracking-tight">📊 Dashboard SayurLogi</h2>
             <p className="text-sm text-white/80">
               Overview performa — 30 hari terakhir
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">{formatIDR(stats.totalRevenue)}</p>
+          <div className="text-right shrink-0">
+            <p className="text-xl md:text-2xl font-bold tabular-nums">{formatIDR(stats.totalRevenue)}</p>
             <p className="text-xs text-white/70">Total Revenue</p>
           </div>
         </div>
@@ -259,8 +259,13 @@ export function DashboardEditor() {
         <div className="absolute -right-4 -bottom-8 h-24 w-24 rounded-full bg-white/5" />
       </div>
 
-      {/* === KPI Cards === */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* === KPI Cards ===
+          Phase 2: grid-cols-1 sm:grid-cols-2 md:grid-cols-4
+          (was: grid-cols-2 md:grid-cols-4 → 2 cols at 326px mobile
+          content area = ~140px per card, cramped + text wrap messy).
+          Single column at <640px gives each KPI card full width,
+          more readable. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           title="Total Revenue"
           value={formatIDR(stats.totalRevenue)}
