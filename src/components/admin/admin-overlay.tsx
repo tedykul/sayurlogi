@@ -9,12 +9,18 @@ import {
   Home, Sparkles, Phone, HelpCircle, Users, MessageSquare,
   Layers, PanelBottom, PanelTop, ScrollText, Package, Palette,
   ShoppingCart, LayoutDashboard, Link2, Ticket, Star, Truck, Globe,
-  Smartphone, Tablet, Monitor, Eye, EyeOff, Pencil, RotateCcw,
+  Smartphone, Tablet, Monitor, Eye, EyeOff, Pencil, RotateCcw, Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   getAdminAuthedFlag,
   getAdminUser,
@@ -190,6 +196,11 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   // stays mounted — only the rendered UI is swapped.
   // See Phase 2 for the FAB itself.
   const [previewMode, setPreviewMode] = useState(false);
+  // Mobile nav drawer (Phase 1): on screens < md, the sidebar is hidden
+  // and replaced with a hamburger button in the header that opens a
+  // slide-out Sheet drawer from the left. State is local (no persistence
+  // needed — drawer auto-closes on tab click + on overlay close).
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Responsive preview frame (Phase 2): admin can constrain the
   // content area to mobile/tablet width to preview how content
   // editors look on smaller screens. Persisted in localStorage.
@@ -207,11 +218,13 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
   // Reset previewMode when overlay is closed externally (e.g. parent
   // sets open=false via footer button, or page navigation). Prevents
   // stale preview state lingering into the next open.
+  // Also close the mobile nav drawer if open (avoid stale Sheet state).
   useEffect(() => {
-    if (!open && previewMode) {
-      setPreviewMode(false);
+    if (!open) {
+      if (previewMode) setPreviewMode(false);
+      if (mobileNavOpen) setMobileNavOpen(false);
     }
-  }, [open, previewMode]);
+  }, [open, previewMode, mobileNavOpen]);
 
   // On mount: always validate the session against the server.
   // The httpOnly cookie is sent automatically; if valid, populate
@@ -399,6 +412,19 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
             {/* Top bar */}
             <header className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-3">
               <div className="flex items-center gap-2">
+                {/* Mobile nav hamburger (Phase 1): opens slide-out drawer.
+                    Hidden on md+ where the full sidebar is always visible. */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileNavOpen(true)}
+                  className="md:hidden h-8 w-8"
+                  aria-label="Buka menu navigasi admin"
+                  aria-expanded={mobileNavOpen}
+                  aria-controls="admin-mobile-nav"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
                   S
                 </div>
@@ -479,53 +505,50 @@ function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
 
             {/* Body: sidebar + content */}
             <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar — grouped tabs. On mobile (<md) it collapses to
-                  an icon-only rail; labels stay in the a11y tree via
-                  sr-only so icon-only buttons keep their accessible
-                  name (E-audit). */}
+              {/* Desktop sidebar (md+ only) — full nav with labels.
+                  Mobile uses the Sheet drawer below instead. Phase 1 fix:
+                  was w-16 (icon rail) on mobile which ate 16% of viewport
+                  for no benefit; now hidden on mobile, drawer provides
+                  the same nav with full labels. */}
               <nav
-                className="w-16 md:w-48 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto scrollbar-grocery"
+                className="hidden md:block md:w-48 shrink-0 border-r border-border bg-secondary/30 overflow-y-auto scrollbar-grocery"
                 aria-label="Navigasi admin"
               >
-                <div className="p-2">
-                  {visibleGroups.map((group, gi) => (
-                    <div
-                      key={group.label}
-                      className={
-                        gi > 0
-                          ? "mt-2 border-t border-border/60 pt-2 md:mt-0 md:border-0 md:pt-3"
-                          : undefined
-                      }
-                    >
-                      <p
-                        aria-hidden="true"
-                        className="hidden md:block px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
-                      >
-                        {group.label}
-                      </p>
-                      <ul className="space-y-1">
-                        {group.tabs.map((tab) => (
-                          <li key={tab.id}>
-                            <button
-                              onClick={() => setActiveTab(tab.id)}
-                              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
-                                activeTab === tab.id
-                                  ? "bg-primary text-primary-foreground"
-                                  : "text-foreground hover:bg-accent"
-                              }`}
-                              aria-current={activeTab === tab.id ? "page" : undefined}
-                              title={tab.label}
-                            >
-                              <tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                              <span className="sr-only md:not-sr-only">{tab.label}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+                <AdminNav
+                  visibleGroups={visibleGroups}
+                  activeTab={activeTab}
+                  onSelectTab={setActiveTab}
+                />
               </nav>
+
+              {/* Mobile nav drawer (Phase 1) — slide-out Sheet from left.
+                  Replaces the old w-16 icon rail that cramped the content
+                  area. Drawer auto-closes on tab click for natural flow. */}
+              <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+                <SheetContent
+                  id="admin-mobile-nav"
+                  side="left"
+                  className="w-72 p-0 overflow-y-auto scrollbar-grocery"
+                  aria-label="Menu navigasi admin"
+                >
+                  <SheetHeader className="border-b border-border bg-secondary/50 px-4 py-3">
+                    <SheetTitle className="flex items-center gap-2 text-sm font-bold">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
+                        S
+                      </span>
+                      Navigasi Admin
+                    </SheetTitle>
+                  </SheetHeader>
+                  <nav aria-label="Navigasi admin (mobile)" className="p-2">
+                    <AdminNav
+                      visibleGroups={visibleGroups}
+                      activeTab={activeTab}
+                      onSelectTab={setActiveTab}
+                      onSelect={() => setMobileNavOpen(false)}
+                    />
+                  </nav>
+                </SheetContent>
+              </Sheet>
 
               {/* Content area — target of the skip link above.
                   Width is constrained by the preview frame toggle
@@ -629,6 +652,71 @@ function PreviewFab({ onRestore }: PreviewFabProps) {
       {/* Pulse indicator — subtle "preview mode active" signal */}
       <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" aria-hidden="true" />
     </motion.button>
+  );
+}
+
+// ============================================================
+// AdminNav — shared sidebar nav content (desktop + mobile drawer).
+// ============================================================
+// Extracted (Phase 1) so the same nav items render in BOTH:
+//   1. Desktop sidebar (md:w-48, always visible)
+//   2. Mobile drawer (Sheet, slide-out from left)
+// Single source of truth = no risk of items drifting out of sync.
+// onSelect callback lets the mobile drawer auto-close after tab click.
+// ============================================================
+
+interface AdminNavProps {
+  visibleGroups: TabGroup[];
+  activeTab: Tab;
+  onSelectTab: (tab: Tab) => void;
+  onSelect?: () => void;
+}
+
+function AdminNav({ visibleGroups, activeTab, onSelectTab, onSelect }: AdminNavProps) {
+  return (
+    <div className="p-2">
+      {visibleGroups.map((group, gi) => (
+        <div
+          key={group.label}
+          className={
+            gi > 0 ? "mt-2 border-t border-border/60 pt-2 md:mt-0 md:border-0 md:pt-3" : undefined
+          }
+        >
+          <p
+            aria-hidden="true"
+            className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            {group.label}
+          </p>
+          <ul className="space-y-1">
+            {group.tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <li key={tab.id}>
+                  <button
+                    onClick={() => {
+                      onSelectTab(tab.id);
+                      onSelect?.();
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-foreground hover:bg-accent"
+                    }`}
+                    aria-current={isActive ? "page" : undefined}
+                    title={tab.label}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{tab.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 
