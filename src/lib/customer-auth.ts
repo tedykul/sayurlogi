@@ -286,6 +286,42 @@ export async function updateCustomerProfile(
   }
 
   const updated = await db.customer.update({ where: { id: customerId }, data });
+
+  // ============================================================
+  // Phase 2 fix: Sync profile update to ERPNext (was: missing).
+  // ============================================================
+  // Before: updateCustomerProfile only updated Next.js DB. ERPNext
+  // Customer data stayed stale (old name/phone/address). Now we fire
+  // ensureCustomer (best-effort, non-blocking) with the updated fields.
+  //
+  // We pass erpCustomerId (if linked) to skip the email lookup and
+  // go straight to update — avoids race conditions where another
+  // sync is running concurrently.
+  //
+  // If customer is not linked to ERPNext yet (erpCustomerId null),
+  // ensureCustomer will do email lookup → if found, update; if not,
+  // create. So this also backfills missing links.
+  // ============================================================
+  ensureCustomer({
+    customerName: updated.name,
+    email: updated.email,
+    phone: updated.phone,
+    address: updated.defaultAddress || "",
+    city: updated.defaultCity || "",
+    erpCustomerId: updated.erpCustomerId,
+  })
+    .then((erpId) => {
+      // If sync returned an ID and customer wasn't linked yet, save it.
+      if (erpId && !updated.erpCustomerId) {
+        db.customer
+          .update({ where: { id: customerId }, data: { erpCustomerId: erpId } })
+          .catch(() => {});
+      }
+    })
+    .catch((err) => {
+      console.warn("[updateCustomerProfile] ERPNext sync failed (non-blocking):", err.message);
+    });
+
   return toPublic(updated);
 }
 
