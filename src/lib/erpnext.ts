@@ -509,6 +509,13 @@ export async function ensureCustomer(payload: {
   phone: string;
   address: string;
   city: string;
+  /**
+   * Phase 1 fix: optional existing ERPNext Customer.name (e.g. "CUST-001").
+   * If provided, skip lookup and go straight to update. This is used by
+   * updateCustomerProfile (Phase 2) to update an already-linked customer
+   * without re-doing the email lookup (avoids race conditions).
+   */
+  erpCustomerId?: string | null;
 }): Promise<string> {
   // Skip entirely if ERPNext is not configured (mock mode). Without
   // this guard, `new URL("")` in erpUrl() throws "Invalid URL" which
@@ -520,26 +527,92 @@ export async function ensureCustomer(payload: {
     return "";
   }
 
-  // Try to find existing customer by email
-  try {
-    const url = erpUrl("/api/resource/Contact", {
-      filters: JSON.stringify([["email_id", "=", payload.email]]),
-      fields: JSON.stringify(["name", "links"]),
-      limit_page_length: 1,
-    });
-    const res = await fetchWithTimeout(url, {}, 15000);
-    if (res.ok) {
-      const json = await res.json();
-      const contact = json.data?.[0];
-      if (contact?.links?.[0]?.link_name) {
-        return contact.links[0].link_name;
+  // ============================================================
+  // Phase 1 fix: lookup by Customer.email_id (was: Contact.email_id).
+  // ============================================================
+  // Before: queried Contact doctype with filter email_id. Contact is a
+  // child of Customer — new customers who don't have a Contact yet were
+  // NOT found, so they got re-created as duplicates every time.
+  //
+  // After: query Customer doctype directly with filter email_id. This
+  // matches the actual customer record, regardless of whether they
+  // have a linked Contact. If found → return existing name (CUST-xxx).
+  // If not found → create new (idempotent).
+  // ============================================================
+
+  let existingErpName = payload.erpCustomerId || "";
+
+  // If caller didn't pass erpCustomerId, try lookup by email
+  if (!existingErpName && payload.email) {
+    try {
+      const lookupUrl = erpUrl("/api/resource/Customer", {
+        filters: JSON.stringify([["email_id", "=", payload.email]]),
+        fields: JSON.stringify(["name"]),
+        limit_page_length: 1,
+      });
+      const lookupRes = await fetchWithTimeout(lookupUrl, {}, 15000);
+      if (lookupRes.ok) {
+        const lookupJson = await lookupRes.json();
+        existingErpName = lookupJson.data?.[0]?.name || "";
+      } else {
+        // Log non-OK response for diagnostic (was: silent ignore).
+        // 403 = permission issue (API key lacks Customer read access).
+        // 404 = endpoint not found (ERPNext version too old).
+        const errText = await lookupRes.text().catch(() => "");
+        console.warn(
+          `[ensureCustomer] Customer lookup failed: ${lookupRes.status} ${lookupRes.statusText}`,
+          errText.slice(0, 200)
+        );
       }
+    } catch (err: any) {
+      // Network error / timeout — log + continue to create (best-effort).
+      console.warn("[ensureCustomer] Lookup error:", err.message);
     }
-  } catch {
-    // ignore — will create new
   }
 
-  // Create new Customer
+  // If found existing → UPDATE phone/name (in case it changed in Next.js)
+  // Phase 2 fix: update profile sync (was: only create, never update).
+  if (existingErpName) {
+    try {
+      const updateUrl = erpUrl(`/api/resource/Customer/${existingErpName}`);
+      const updatePayload: Record<string, unknown> = {};
+      if (payload.customerName) updatePayload.customer_name = payload.customerName;
+      if (payload.phone) updatePayload.mobile_no = payload.phone;
+      // Only PUT if there's something to update (avoid empty PUT request)
+      if (Object.keys(updatePayload).length > 0) {
+        const updateRes = await fetchWithTimeout(
+          updateUrl,
+          { method: "PUT", body: JSON.stringify(updatePayload) },
+          15000
+        );
+        if (!updateRes.ok) {
+          const errText = await updateRes.text().catch(() => "");
+          console.warn(
+            `[ensureCustomer] Customer update failed: ${updateRes.status}`,
+            errText.slice(0, 200)
+          );
+        }
+      }
+    } catch (err: any) {
+      console.warn("[ensureCustomer] Update error:", err.message);
+    }
+
+    // Sync address (Phase 1: was missing — address payload was ignored).
+    // Create/update Address doctype linked to Customer.
+    if (payload.address) {
+      try {
+        await syncCustomerAddress(existingErpName, payload.address, payload.city);
+      } catch (err: any) {
+        console.warn("[ensureCustomer] Address sync error:", err.message);
+      }
+    }
+
+    return existingErpName;
+  }
+
+  // ============================================================
+  // Create new Customer (idempotent — only if lookup above missed)
+  // ============================================================
   const custUrl = erpUrl("/api/resource/Customer");
   const custPayload = {
     customer_name: payload.customerName,
@@ -549,14 +622,89 @@ export async function ensureCustomer(payload: {
     ...(payload.email ? { email_id: payload.email } : {}),
     ...(payload.phone ? { mobile_no: payload.phone } : {}),
   };
-  const res = await fetchWithTimeout(custUrl, {
-    method: "POST",
-    body: JSON.stringify(custPayload),
-  }, 15000);
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gagal membuat customer: ${errText}`);
+  const createRes = await fetchWithTimeout(
+    custUrl,
+    { method: "POST", body: JSON.stringify(custPayload) },
+    15000
+  );
+  if (!createRes.ok) {
+    const errText = await createRes.text().catch(() => "");
+    throw new Error(`Gagal membuat customer ERPNext: ${createRes.status} ${errText.slice(0, 300)}`);
   }
-  const json = await res.json();
-  return json.data?.name;
+  const createJson = await createRes.json();
+  const newErpName = createJson.data?.name;
+
+  // Sync address for new customer (Phase 1: was missing).
+  if (newErpName && payload.address) {
+    try {
+      await syncCustomerAddress(newErpName, payload.address, payload.city);
+    } catch (err: any) {
+      console.warn("[ensureCustomer] Address sync error (new customer):", err.message);
+    }
+  }
+
+  return newErpName;
+}
+
+// ============================================================
+// syncCustomerAddress — create/update Address doctype linked to Customer.
+// ============================================================
+// Phase 1: NEW function. Before, address payload was ignored — customer
+// in ERPNext had no address. Now, creates an Address record linked to
+// the Customer via dynamic link.
+//
+// Idempotent: looks up existing Address by link_name + address_type.
+// If found → update. If not → create.
+// ============================================================
+async function syncCustomerAddress(
+  customerName: string,
+  addressLine: string,
+  city: string
+): Promise<void> {
+  const addressType = "Shipping";
+  // Try to find existing address linked to this customer
+  try {
+    const lookupUrl = erpUrl("/api/resource/Address", {
+      filters: JSON.stringify([
+        ["Dynamic Link", "link_doctype", "=", "Customer"],
+        ["Dynamic Link", "link_name", "=", customerName],
+        ["address_type", "=", addressType],
+      ]),
+      fields: JSON.stringify(["name"]),
+      limit_page_length: 1,
+    });
+    const lookupRes = await fetchWithTimeout(lookupUrl, {}, 15000);
+    if (lookupRes.ok) {
+      const lookupJson = await lookupRes.json();
+      const existingAddr = lookupJson.data?.[0]?.name;
+
+      const addrPayload = {
+        address_type: addressType,
+        address_line1: addressLine,
+        city: city || "Indonesia",
+        country: "Indonesia",
+        links: [{ link_doctype: "Customer", link_name: customerName }],
+      };
+
+      if (existingAddr) {
+        // Update existing
+        const updateUrl = erpUrl(`/api/resource/Address/${existingAddr}`);
+        await fetchWithTimeout(
+          updateUrl,
+          { method: "PUT", body: JSON.stringify(addrPayload) },
+          15000
+        );
+      } else {
+        // Create new
+        const createUrl = erpUrl("/api/resource/Address");
+        await fetchWithTimeout(
+          createUrl,
+          { method: "POST", body: JSON.stringify(addrPayload) },
+          15000
+        );
+      }
+    }
+  } catch (err: any) {
+    console.warn("[syncCustomerAddress] Error:", err.message);
+  }
 }
