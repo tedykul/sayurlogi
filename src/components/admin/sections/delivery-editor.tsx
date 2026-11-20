@@ -416,8 +416,11 @@ function ServiceAreaToggle() {
   const handleSave = async (newRestricted: boolean, newCities: string) => {
     setSaving(true);
     try {
+      // Phase 3 fix: use POST (content API only supports POST, not PUT).
+      // Was: method: "PUT" → 405 Method Not Allowed → empty body →
+      // res.json() crash "Failed to execute 'json' on response".
       const res = await adminFetch("/api/admin/content", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceAreaRestricted: newRestricted,
