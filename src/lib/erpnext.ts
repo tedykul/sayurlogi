@@ -26,7 +26,7 @@ function authHeader(): string {
 }
 
 /** Build absolute URL for ERPNext endpoint */
-function erpUrl(path: string, params?: Record<string, string | number | undefined>): string {
+export function erpUrl(path: string, params?: Record<string, string | number | undefined>): string {
   const c = getErpConfig();
   const url = new URL(`${c.url.replace(/\/$/, "")}${path}`);
   if (params) {
@@ -50,7 +50,7 @@ function getCompany(): string {
 /**
  * Fetch with timeout (5s) so the UI never hangs if ERPNext is offline.
  */
-async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 5000) {
+export async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 5000) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -252,6 +252,10 @@ export async function createSalesOrder(payload: {
   /// Sent to ERPNext as `discount_amount` on the Sales Order
   /// (apply_discount_on = "Grand Total"). Ignored in mock mode.
   discount?: number;
+  /// Phase 2 fix: pass existing ERPNext Customer.name (e.g. "CUST-001")
+  /// to skip lookup in ensureCustomer. Prevents duplicate customer
+  /// creation when checkout fires while registration sync is in progress.
+  erpCustomerId?: string;
 }): Promise<{
   success: boolean;
   salesOrderName?: string;
@@ -272,7 +276,16 @@ export async function createSalesOrder(payload: {
 
   try {
     // Step 1: Ensure Customer exists (by email). If not, create.
-    const customerId = await ensureCustomer(payload);
+    // Phase 2 fix: pass erpCustomerId if provided (from checkout caller)
+    // so ensureCustomer can skip lookup + go straight to update.
+    const customerId = await ensureCustomer({
+      customerName: payload.customerName,
+      email: payload.email,
+      phone: payload.phone,
+      address: payload.address,
+      city: payload.city,
+      erpCustomerId: payload.erpCustomerId,
+    });
 
     // Step 2: Ensure Address exists + link to Customer (Opsi B)
     // Returns Address ID (e.g. "ADDR-001") or null if creation fails
@@ -502,6 +515,17 @@ async function ensureAddress(
   }
 }
 
+// ============================================================
+// Phase 1 fix: in-memory lock per email to prevent race conditions.
+// ============================================================
+// When register + checkout fire ensureCustomer at the same time,
+// both would lookup → both NOT FOUND → both CREATE → duplicate
+// (ERPNext appends "1", "2" suffix). The lock serializes calls
+// for the same email so the second call waits for the first to
+// finish, then reuses the result.
+// ============================================================
+const customerSyncLocks = new Map<string, Promise<string>>();
+
 /** Find customer by email; if not found, create new Customer in ERPNext */
 export async function ensureCustomer(payload: {
   customerName: string;
@@ -527,19 +551,38 @@ export async function ensureCustomer(payload: {
     return "";
   }
 
+  // Phase 1 fix: acquire lock per email to prevent duplicate creation
+  const lockKey = payload.email.toLowerCase();
+  const existingLock = customerSyncLocks.get(lockKey);
+  if (existingLock) {
+    // Another sync for this email is in progress — wait for it + reuse result
+    return existingLock;
+  }
+
+  // Create a new promise for this sync operation
+  const syncPromise = doEnsureCustomer(payload).finally(() => {
+    customerSyncLocks.delete(lockKey);
+  });
+  customerSyncLocks.set(lockKey, syncPromise);
+  return syncPromise;
+}
+
+// ============================================================
+// doEnsureCustomer — actual sync logic (called via lock wrapper above).
+// Separated from ensureCustomer so the lock wrapper can manage concurrency.
+// ============================================================
+async function doEnsureCustomer(payload: {
+  customerName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  erpCustomerId?: string | null;
+}): Promise<string> {
   // ============================================================
   // Phase 1 fix: lookup by Customer.email_id (was: Contact.email_id).
+  // + phone fallback lookup (mobile_no) jika email lookup miss.
   // ============================================================
-  // Before: queried Contact doctype with filter email_id. Contact is a
-  // child of Customer — new customers who don't have a Contact yet were
-  // NOT found, so they got re-created as duplicates every time.
-  //
-  // After: query Customer doctype directly with filter email_id. This
-  // matches the actual customer record, regardless of whether they
-  // have a linked Contact. If found → return existing name (CUST-xxx).
-  // If not found → create new (idempotent).
-  // ============================================================
-
   let existingErpName = payload.erpCustomerId || "";
 
   // If caller didn't pass erpCustomerId, try lookup by email
@@ -555,30 +598,45 @@ export async function ensureCustomer(payload: {
         const lookupJson = await lookupRes.json();
         existingErpName = lookupJson.data?.[0]?.name || "";
       } else {
-        // Log non-OK response for diagnostic (was: silent ignore).
-        // 403 = permission issue (API key lacks Customer read access).
-        // 404 = endpoint not found (ERPNext version too old).
         const errText = await lookupRes.text().catch(() => "");
         console.warn(
-          `[ensureCustomer] Customer lookup failed: ${lookupRes.status} ${lookupRes.statusText}`,
+          `[ensureCustomer] Customer lookup by email failed: ${lookupRes.status}`,
           errText.slice(0, 200)
         );
       }
     } catch (err: any) {
-      // Network error / timeout — log + continue to create (best-effort).
       console.warn("[ensureCustomer] Lookup error:", err.message);
     }
   }
 
+  // Phase 1 fix: fallback lookup by phone (mobile_no) jika email miss.
+  // Kadang ERPNext tidak index email_id dengan cepat, tapi mobile_no
+  // lebih reliable. Ini mencegah duplicate saat email lookup race.
+  if (!existingErpName && payload.phone) {
+    try {
+      const phoneLookupUrl = erpUrl("/api/resource/Customer", {
+        filters: JSON.stringify([["mobile_no", "=", payload.phone]]),
+        fields: JSON.stringify(["name"]),
+        limit_page_length: 1,
+      });
+      const phoneRes = await fetchWithTimeout(phoneLookupUrl, {}, 15000);
+      if (phoneRes.ok) {
+        const phoneJson = await phoneRes.json();
+        existingErpName = phoneJson.data?.[0]?.name || "";
+      }
+    } catch (err: any) {
+      console.warn("[ensureCustomer] Phone lookup error:", err.message);
+    }
+  }
+
   // If found existing → UPDATE phone/name (in case it changed in Next.js)
-  // Phase 2 fix: update profile sync (was: only create, never update).
   if (existingErpName) {
     try {
       const updateUrl = erpUrl(`/api/resource/Customer/${existingErpName}`);
       const updatePayload: Record<string, unknown> = {};
       if (payload.customerName) updatePayload.customer_name = payload.customerName;
       if (payload.phone) updatePayload.mobile_no = payload.phone;
-      // Only PUT if there's something to update (avoid empty PUT request)
+      if (payload.email) updatePayload.email_id = payload.email;
       if (Object.keys(updatePayload).length > 0) {
         const updateRes = await fetchWithTimeout(
           updateUrl,
@@ -597,8 +655,7 @@ export async function ensureCustomer(payload: {
       console.warn("[ensureCustomer] Update error:", err.message);
     }
 
-    // Sync address (Phase 1: was missing — address payload was ignored).
-    // Create/update Address doctype linked to Customer.
+    // Sync address
     if (payload.address) {
       try {
         await syncCustomerAddress(existingErpName, payload.address, payload.city);
@@ -634,7 +691,7 @@ export async function ensureCustomer(payload: {
   const createJson = await createRes.json();
   const newErpName = createJson.data?.name;
 
-  // Sync address for new customer (Phase 1: was missing).
+  // Sync address for new customer
   if (newErpName && payload.address) {
     try {
       await syncCustomerAddress(newErpName, payload.address, payload.city);
