@@ -157,6 +157,8 @@ export async function POST(req: NextRequest) {
 
     // 3. Create Sales Order in ERPNext (or mock). Pass discount
     //    so ERPNext SO carries the reduced grand total.
+    //    Phase 2 fix: pass erpCustomerId if customer already linked,
+    //    so ensureCustomer can skip lookup (prevent duplicate).
     const erpResult = await createSalesOrder({
       customerName: payload.customer.name,
       email: payload.customer.email,
@@ -164,6 +166,8 @@ export async function POST(req: NextRequest) {
       address: payload.customer.address,
       city: payload.customer.city,
       notes: payload.customer.notes,
+      // Phase 2: pass existing ERPNext customer ID if linked
+      erpCustomerId: payload.customer.erpCustomerId || undefined,
       items: payload.items.map((i) => ({
         itemCode: i.product.itemCode,
         qty: i.quantity,
