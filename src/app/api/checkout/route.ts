@@ -104,6 +104,25 @@ export async function POST(req: NextRequest) {
       ? ` (${removedCount} produk tidak tersedia telah dihapus dari pesanan)`
       : "";
 
+    // Phase 3: check service area restriction before checkout
+    const setting = await db.siteSetting.findUnique({ where: { id: "singleton" } });
+    if (setting?.serviceAreaRestricted && payload.customer.city) {
+      const allowedCities = (setting.serviceAreaCities || "Makassar")
+        .split(",")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean);
+      const customerCity = payload.customer.city.trim().toLowerCase();
+      if (allowedCities.length > 0 && !allowedCities.includes(customerCity)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Maaf, saat ini kami hanya melayani kota: ${setting.serviceAreaCities}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // 1. Calculate subtotal + shipping
     const subtotal = payload.items.reduce(
       (sum, i) => sum + i.product.price * i.quantity,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Loader2, Calendar, Clock, Truck, Power, X, Check, AlertCircle,
+  Loader2, Calendar, Clock, Truck, Power, X, Check, AlertCircle, MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -255,6 +255,15 @@ export function DeliveryEditor() {
         </div>
       </AdminCard>
 
+      {/* Phase 2: Service Area Restriction — Batasi registrasi + checkout
+          hanya untuk kota tertentu (default: Makassar). Toggle ON →
+          customer form Kota jadi dropdown, checkout reject kota lain. */}
+      <AdminCard>
+        <div className="p-4 space-y-4">
+          <ServiceAreaToggle />
+        </div>
+      </AdminCard>
+
       {/* Custom slot templates */}
       <SlotTemplateEditor />
 
@@ -364,5 +373,135 @@ export function DeliveryEditor() {
       {/* Biteship settings (multi-courier) */}
       <BiteshipSettingsEditor />
     </div>
+  );
+}
+
+// ============================================================
+// ServiceAreaToggle — Phase 2: restrict registration + checkout to
+// specific cities (default: Makassar only).
+// ============================================================
+// Admin can:
+//   1. Toggle ON/OFF the restriction
+//   2. Edit the list of allowed cities (comma-separated)
+//
+// When ON:
+//   - Customer registration form: Kota field becomes a dropdown
+//   - Checkout: validates customer city is in allowed list
+//
+// When OFF:
+//   - Customer can input any city (original behavior)
+// ============================================================
+
+function ServiceAreaToggle() {
+  const [restricted, setRestricted] = useState(false);
+  const [cities, setCities] = useState("Makassar");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminFetch<{ success: boolean }>("/api/admin/content");
+        const data = await res.json();
+        setRestricted(data.serviceAreaRestricted === true);
+        setCities(data.serviceAreaCities || "Makassar");
+      } catch {
+        // Use defaults
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleSave = async (newRestricted: boolean, newCities: string) => {
+    setSaving(true);
+    try {
+      const res = await adminFetch("/api/admin/content", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceAreaRestricted: newRestricted,
+          serviceAreaCities: newCities.trim() || "Makassar",
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal menyimpan");
+      setRestricted(newRestricted);
+      setCities(newCities.trim() || "Makassar");
+      toast.success(newRestricted ? "Batas wilayah aktif" : "Batas wilayah nonaktif");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <MapPin className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              Batas Wilayah
+              {restricted ? (
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs">Aktif</Badge>
+              ) : (
+                <Badge variant="secondary" className="text-xs">Nonaktif</Badge>
+              )}
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              Batasi registrasi + checkout hanya untuk kota tertentu
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Enable</Label>
+          <Switch
+            checked={restricted}
+            onCheckedChange={(v) => handleSave(v, cities)}
+            disabled={saving || loading}
+            aria-label="Aktifkan batas wilayah"
+          />
+        </div>
+      </div>
+
+      {/* City list editor — only visible when restriction is ON */}
+      {restricted && (
+        <div className="border-t border-border/60 pt-3 space-y-2">
+          <Label className="text-xs font-medium flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" />
+            Kota yang Dilayani (pisahkan dengan koma)
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              value={cities}
+              onChange={(e) => setCities(e.target.value)}
+              placeholder="Makassar, Maros, Gowa"
+              className="h-9 text-xs"
+            />
+            <Button
+              onClick={() => handleSave(true, cities)}
+              disabled={saving || !cities.trim()}
+              size="sm"
+              variant="outline"
+              className="h-9 shrink-0"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Simpan
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {cities.split(",").map((c) => c.trim()).filter(Boolean).map((city, i) => (
+              <Badge key={i} variant="outline" className="text-xs">
+                <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                {city}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

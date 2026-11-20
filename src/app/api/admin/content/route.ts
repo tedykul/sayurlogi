@@ -93,6 +93,8 @@ export async function POST(req: NextRequest) {
       "welcomeBannerVersion",
       // Google OAuth
       "googleAuthClientId",
+      // Service area restriction
+      "serviceAreaCities",
     ];
     // Integer fields — parsed as Number, persisted as Int? on SiteSetting.
     const intFields = [
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
     const boolFields = [
       "welcomeBannerEnabled",
       "googleAuthEnabled",
+      "serviceAreaRestricted",
     ];
 
     const data: Record<string, string | number | boolean | null> = {};

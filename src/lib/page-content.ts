@@ -101,6 +101,9 @@ export interface PageContent {
   // Google OAuth
   googleAuthEnabled: boolean | null;
   googleAuthClientId: string | null;
+  // Service area restriction (Phase 1: Makassar-only toggle)
+  serviceAreaRestricted: boolean | null;
+  serviceAreaCities: string | null;
   faqs: { id: string; q: string; a: string }[];
   testimonials: {
     id: string;
@@ -160,6 +163,9 @@ const NULL_CONTENT = {
   // Google OAuth defaults
   googleAuthEnabled: null,
   googleAuthClientId: null,
+  // Service area defaults
+  serviceAreaRestricted: null,
+  serviceAreaCities: null,
 };
 
 /** Fetch all page content from DB. Safe to call from server component. */

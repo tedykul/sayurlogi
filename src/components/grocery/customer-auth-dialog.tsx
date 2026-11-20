@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useCustomerStore } from "@/lib/store/customer";
 import { GoogleSignInButton } from "./google-signin-button";
@@ -36,6 +43,9 @@ export function CustomerAuthDialog() {
   // Fetch Google Auth config (enabled + clientId) from public API.
   // Only fetch when dialog opens (avoid unnecessary requests).
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  // Phase 3: service area restriction (Makassar-only toggle)
+  const [serviceAreaRestricted, setServiceAreaRestricted] = useState(false);
+  const [serviceAreaCities, setServiceAreaCities] = useState<string[]>([]);
   // Forgot password dialog state. Opens when user clicks "Lupa password?".
   // Closes the auth dialog temporarily + opens forgot password dialog.
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -72,6 +82,15 @@ export function CustomerAuthDialog() {
           setGoogleClientId(c.googleAuthClientId);
         } else {
           setGoogleClientId(null); // explicitly null = disabled
+        }
+        // Phase 3: also load service area restriction config
+        if (c?.serviceAreaRestricted) {
+          setServiceAreaRestricted(true);
+          const cities = (c.serviceAreaCities || "Makassar")
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+          setServiceAreaCities(cities);
         }
       })
       .catch(() => setGoogleClientId(null));
@@ -155,6 +174,8 @@ export function CustomerAuthDialog() {
               onSuccess={onSuccess}
               onSwitchToLogin={() => setTab("login")}
               googleClientId={googleClientId}
+              serviceAreaRestricted={serviceAreaRestricted}
+              serviceAreaCities={serviceAreaCities}
             />
           )}
         </DialogContent>
@@ -361,10 +382,14 @@ function RegisterForm({
   onSuccess,
   onSwitchToLogin,
   googleClientId,
+  serviceAreaRestricted = false,
+  serviceAreaCities = [],
 }: {
   onSuccess: (c: CustomerPublic) => void;
   onSwitchToLogin: () => void;
   googleClientId: string | null;
+  serviceAreaRestricted?: boolean;
+  serviceAreaCities?: string[];
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -385,6 +410,11 @@ function RegisterForm({
     e.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.password) {
       setError("Nama, email, telepon, dan password wajib diisi");
+      return;
+    }
+    // Phase 3: if service area restricted, city is required + must be in allowed list
+    if (serviceAreaRestricted && !form.city) {
+      setError("Kota wajib dipilih");
       return;
     }
     if (form.phone.length < 8 || form.phone.length > 15) {
@@ -558,14 +588,42 @@ function RegisterForm({
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium">Kota <span className="text-muted-foreground">(opsional)</span></Label>
-        <Input
-          value={form.city}
-          onChange={(e) => setForm({ ...form, city: e.target.value })}
-          placeholder="Jakarta Selatan"
-          disabled={loading}
-          className="h-10"
-        />
+        <Label className="text-xs font-medium">
+          Kota{" "}
+          {serviceAreaRestricted ? (
+            <span className="text-primary">*</span>
+          ) : (
+            <span className="text-muted-foreground">(opsional)</span>
+          )}
+        </Label>
+        {serviceAreaRestricted ? (
+          // Phase 3: dropdown with allowed cities only (Makassar, etc.)
+          <Select
+            value={form.city}
+            onValueChange={(v) => setForm({ ...form, city: v })}
+            disabled={loading}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Pilih kota" />
+            </SelectTrigger>
+            <SelectContent>
+              {serviceAreaCities.map((city) => (
+                <SelectItem key={city} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          // Original: free text input (all cities allowed)
+          <Input
+            value={form.city}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            placeholder="Jakarta Selatan"
+            disabled={loading}
+            className="h-10"
+          />
+        )}
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
       <Button type="submit" disabled={loading} className="h-10 w-full">

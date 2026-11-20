@@ -295,6 +295,14 @@ model SiteSetting {
   /// a slot picker (pagi/siang/sore). When false, checkout uses
   /// the default estimate (same as before scheduling existed).
   deliverySchedulingEnabled Boolean @default(false)
+  /// Service area restriction toggle. When true, customer registration
+  /// + checkout only accepts cities listed in serviceAreaCities
+  /// (comma-separated, e.g. "Makassar, Maros, Gowa"). When false,
+  /// all cities are accepted (no restriction).
+  serviceAreaRestricted Boolean @default(false)
+  /// Comma-separated list of allowed cities when serviceAreaRestricted
+  /// is true. Case-insensitive match. Default: "Makassar".
+  serviceAreaCities String?
 
   updatedAt DateTime @updatedAt
 }
