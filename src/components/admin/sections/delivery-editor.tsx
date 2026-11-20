@@ -401,10 +401,20 @@ function ServiceAreaToggle() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await adminFetch<{ success: boolean }>("/api/admin/content");
-        const data = await res.json();
-        setRestricted(data.serviceAreaRestricted === true);
-        setCities(data.serviceAreaCities || "Makassar");
+        // adminFetch returns parsed JSON (not Response), so we use it directly.
+        // Was: const res = await adminFetch(...); const data = await res.json();
+        // That was wrong — adminFetch already returns the data, not a Response.
+        const data = await adminFetch<{
+          success: boolean;
+          content?: {
+            serviceAreaRestricted?: boolean | null;
+            serviceAreaCities?: string | null;
+          };
+        }>("/api/admin/content");
+        // data is the parsed JSON: { success, content: { ... } }
+        const c = (data as any)?.content || data;
+        setRestricted(c?.serviceAreaRestricted === true);
+        setCities(c?.serviceAreaCities || "Makassar");
       } catch {
         // Use defaults
       } finally {
@@ -416,10 +426,9 @@ function ServiceAreaToggle() {
   const handleSave = async (newRestricted: boolean, newCities: string) => {
     setSaving(true);
     try {
-      // Phase 3 fix: use POST (content API only supports POST, not PUT).
-      // Was: method: "PUT" → 405 Method Not Allowed → empty body →
-      // res.json() crash "Failed to execute 'json' on response".
-      const res = await adminFetch("/api/admin/content", {
+      // adminFetch returns parsed JSON + throws on !res.ok.
+      // No need to call res.json() again (was the bug — double parse).
+      await adminFetch("/api/admin/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -427,7 +436,6 @@ function ServiceAreaToggle() {
           serviceAreaCities: newCities.trim() || "Makassar",
         }),
       });
-      if (!res.ok) throw new Error("Gagal menyimpan");
       setRestricted(newRestricted);
       setCities(newCities.trim() || "Makassar");
       toast.success(newRestricted ? "Batas wilayah aktif" : "Batas wilayah nonaktif");
