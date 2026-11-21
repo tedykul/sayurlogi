@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetClose,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { CouponList } from "./coupon-list";
 import { GenerateCouponDialog } from "./generate-coupon-dialog";
 import { CouponStats } from "./coupon-stats";
 import { IntegrationEditor } from "./integration-editor";
-import { Ticket, Plus, LogOut, RefreshCw, Loader2, Plug } from "lucide-react";
+import { Ticket, Plus, LogOut, RefreshCw, Loader2, Plug, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Coupon } from "@/types";
 
@@ -192,6 +193,11 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
                 >
                   <LogOut className="h-3.5 w-3.5" />
                 </Button>
+                {/* Close button — was provided by default SheetContent before
+                    we removed it to fix duplicate [x] in main-nav. */}
+                <SheetClose className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Tutup">
+                  <X className="h-4 w-4" />
+                </SheetClose>
               </div>
             </div>
           </SheetHeader>
