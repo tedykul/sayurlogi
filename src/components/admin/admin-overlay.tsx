@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { SessionProvider, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Lock, Loader2, AlertCircle, LogOut, Mail, UserCog,
@@ -75,11 +74,7 @@ interface AdminOverlayProps {
 }
 
 export function AdminOverlay(props: AdminOverlayProps) {
-  return (
-    <SessionProvider>
-      <AdminOverlayInner {...props} />
-    </SessionProvider>
-  );
+  return <AdminOverlayInner {...props} />;
 }
 
 type Tab =
@@ -177,7 +172,6 @@ const PREVIEW_WIDTHS: Record<PreviewWidth, { label: string; icon: typeof Smartph
 };
 
 function AdminOverlayInner({ open, onOpenChange }: AdminOverlayProps) {
-  const { data: session } = useSession();
   const router = useRouter();
   const overlayRef = useRef<HTMLDivElement>(null);
   // Lazy init: read UI flag + cached user from sessionStorage on

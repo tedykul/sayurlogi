@@ -6,8 +6,19 @@ import { Hero } from "@/components/grocery/hero";
 import { CategoryTabs } from "@/components/grocery/category-tabs";
 import { ProductGrid } from "@/components/grocery/product-grid";
 import { CartSheet } from "@/components/grocery/cart-sheet";
-import { CheckoutDialog } from "@/components/grocery/checkout-dialog";
-import { ProductDetailDialog } from "@/components/grocery/product-detail-dialog";
+import dynamic from "next/dynamic";
+// Phase 3: lazy-load heavy components (AdminOverlay ~50KB + 21 editors,
+// CheckoutDialog ~30KB, ProductDetailDialog ~25KB) to reduce homepage
+// first-load JS. These are only opened on user interaction, not needed
+// for initial page render.
+const CheckoutDialog = dynamic(
+  () => import("@/components/grocery/checkout-dialog").then((m) => m.CheckoutDialog),
+  { ssr: false }
+);
+const ProductDetailDialog = dynamic(
+  () => import("@/components/grocery/product-detail-dialog").then((m) => m.ProductDetailDialog),
+  { ssr: false }
+);
 import { WishlistSheet } from "@/components/grocery/wishlist-sheet";
 import { RecentlyViewedSection } from "@/components/grocery/recently-viewed-section";
 import { useRecentlyViewed } from "@/hooks/use-recently-viewed";
@@ -28,7 +39,13 @@ import { BottomNav } from "@/components/grocery/bottom-nav";
 import { WelcomeBanner } from "@/components/grocery/welcome-banner";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
-import { AdminOverlay } from "@/components/admin/admin-overlay";
+// Phase 3: lazy-load AdminOverlay (biggest win — 920 lines + 21 admin
+// section editors, some 1000+ lines each). Only opened via Ctrl+Shift+A
+// or footer button. ssr: false because it's purely client-side.
+const AdminOverlay = dynamic(
+  () => import("@/components/admin/admin-overlay").then((m) => m.AdminOverlay),
+  { ssr: false }
+);
 import { OrderTrackingDialog } from "@/components/grocery/order-tracking-dialog";
 import { OrderHistoryDialog } from "@/components/grocery/order-history-dialog";
 import { SharedWishlistDialog } from "@/components/grocery/shared-wishlist-dialog";

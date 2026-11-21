@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Minus, Leaf, Star, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -18,7 +18,12 @@ interface ProductCardProps {
   onOpenDetail?: (product: Product) => void;
 }
 
-export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardProps) {
+// Phase 3: wrap in memo to prevent unnecessary re-renders when cart
+// store updates. Without memo, every cart-store change re-renders ALL
+// visible ProductCards (because useCartStore subscription triggers
+// re-render of the component). With memo, only cards whose props
+// actually changed will re-render.
+export const ProductCard = memo(function ProductCard({ product, index = 0, onOpenDetail }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem);
   const items = useCartStore((s) => s.items);
   const updateQty = useCartStore((s) => s.updateQty);
@@ -200,7 +205,7 @@ export function ProductCard({ product, index = 0, onOpenDetail }: ProductCardPro
       </div>
     </motion.div>
   );
-}
+});
 
 function QtyStepper({
   qty,
