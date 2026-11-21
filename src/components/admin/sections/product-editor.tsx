@@ -842,7 +842,7 @@ export function ProductEditor() {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-1 @md:grid-cols-2 gap-3 text-xs">
                             <div className="space-y-1">
                               {p.image && (
                                 <div className="flex items-center gap-2">
@@ -1105,7 +1105,7 @@ function ProductForm({ initial, isNew, onSave, onCancel }: ProductFormProps) {
         </div>
 
         {/* Identity row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 @md:grid-cols-3 gap-3">
           <AdminField label="Emoji" required>
             <div className="flex items-center gap-2">
               <button
@@ -1195,7 +1195,7 @@ function ProductForm({ initial, isNew, onSave, onCancel }: ProductFormProps) {
         </AdminField>
 
         {/* Pricing + stock row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 @md:grid-cols-4 gap-3">
           <AdminField label="Harga (IDR)" required>
             <Input
               type="number"
@@ -1236,7 +1236,7 @@ function ProductForm({ initial, isNew, onSave, onCancel }: ProductFormProps) {
           </AdminField>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 @md:grid-cols-2 gap-3">
           <AdminField label="Kategori">
             <Select value={form.category} onValueChange={(v) => set("category", v)}>
               <SelectTrigger className="h-9">

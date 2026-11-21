@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/admin-auth";
+import { requirePermission, isAuthResult } from "@/lib/permissions";
 import { logAdminAction } from "@/lib/audit";
 import { db } from "@/lib/db";
 import sharp from "sharp";
@@ -26,10 +26,8 @@ const OUTPUT_WIDTH = 1200;
 const OUTPUT_HEIGHT = 630;
 
 export async function POST(req: NextRequest) {
-  const auth = await verifyAuth();
-  if (!auth) {
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requirePermission("banner:upload");
+  if (!isAuthResult(auth)) return auth;
 
   try {
     const formData = await req.formData();

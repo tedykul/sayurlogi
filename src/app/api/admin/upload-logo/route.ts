@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/admin-auth";
+import { requirePermission, isAuthResult } from "@/lib/permissions";
 import { logAdminAction } from "@/lib/audit";
 import sharp from "sharp";
 import { writeFile, readFile } from "fs/promises";
@@ -22,10 +22,8 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
 
 export async function POST(req: NextRequest) {
-  const auth = await verifyAuth();
-  if (!auth) {
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requirePermission("favicon:upload");
+  if (!isAuthResult(auth)) return auth;
 
   try {
     const formData = await req.formData();

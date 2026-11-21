@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginCustomer, attachCustomerSession } from "@/lib/customer-auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -7,19 +8,25 @@ export const dynamic = "force-dynamic";
 // POST /api/customer/login
 // ============================================================
 // Body: { email, password, rememberMe? }
-// On success: sets customer_session httpOnly cookie + returns
-// customer profile.
-//
-// rememberMe (optional, default false):
-//   - true  → session TTL 30 days (long-lived on personal device)
-//   - false → session TTL 7 days (default)
-//
-// The cookie's maxAge is derived from session.expiresAt, so when
-// rememberMe=true, the cookie also persists for 30 days. The user
-// won't need to re-login until the 30-day window expires.
+// Rate limited: 10 attempts per 15 min (prevent brute-force).
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  // Rate limit: customer login (10/15min) — prevents password brute-force
+  const rateLimit = await checkRateLimit("customer-login");
+  if (rateLimit.blocked) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terlalu banyak percobaan login. Coba lagi nanti.",
+        retryAfter: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      }
+    );
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const result = await loginCustomer({

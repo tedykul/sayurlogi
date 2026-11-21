@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requestPasswordReset } from "@/lib/customer-auth";
 import { getEmailConfig } from "@/lib/email-service";
 import { sendPasswordResetEmail, isSmtpConfigured as isEnvSmtpConfigured } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,21 @@ export const dynamic = "force-dynamic";
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 5 requests per 15 min (prevent email bomb / DB spam)
+  const rateLimit = await checkRateLimit("forgot-password");
+  if (rateLimit.blocked) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terlalu banyak permintaan reset password. Coba lagi nanti.",
+        retryAfter: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      }
+    );
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const email = typeof body.email === "string" ? body.email.trim() : "";

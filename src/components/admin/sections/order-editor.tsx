@@ -417,7 +417,7 @@ export function OrderEditor() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-1 @md:grid-cols-2 gap-4 text-xs">
                           {/* Customer info */}
                           <div className="space-y-1.5">
                             <p className="font-semibold text-foreground">Info Customer</p>

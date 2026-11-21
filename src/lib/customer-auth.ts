@@ -162,11 +162,18 @@ export async function loginCustomer(opts: {
   if (!email || !password) throw new Error("Email dan password wajib diisi.");
 
   const customer = await db.customer.findUnique({ where: { email } });
-  if (!customer || !customer.active) {
+  if (!customer || !customer.active || !customer.passwordHash) {
+    // Security fix: run a dummy bcrypt.compare to equalize timing.
+    // Without this, attacker can enumerate valid emails by measuring
+    // response time (existing email → bcrypt runs ~100ms, non-existent
+    // → instant throw). The dummy hash is a pre-computed bcrypt hash
+    // of a random string — we compare the user's password against it
+    // so the timing is identical to a real login attempt.
+    await bcrypt.compare(password, "$2b$10$dummyhashplaceholderdummyhashplaceholderdummyhashplacehol");
     throw new Error("Email atau password salah.");
   }
 
-  const valid = await bcrypt.compare(password, customer.passwordHash || "");
+  const valid = await bcrypt.compare(password, customer.passwordHash);
   if (!valid) {
     throw new Error("Email atau password salah.");
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/admin-auth";
+import { requirePermission, isAuthResult } from "@/lib/permissions";
 import { verifyPayment, getPaymentByOrderId } from "@/lib/payments";
 import { notifyPaymentVerified } from "@/lib/wa-notification";
 import { logAdminAction } from "@/lib/audit";
@@ -25,12 +25,8 @@ interface Params {
 // ============================================================
 
 export async function POST(_req: NextRequest, { params }: Params) {
-  if (!(await verifyAdmin())) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized." },
-      { status: 401 }
-    );
-  }
+  const auth = await requirePermission("orders:write");
+  if (!isAuthResult(auth)) return auth;
 
   try {
     const { id: orderId } = await params;

@@ -478,7 +478,7 @@ export function IntegrationEditor() {
           </AdminField>
 
           {/* Site + Warehouse + Company (grid) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 @md:grid-cols-3 gap-3">
             <AdminField label="Site Name" hint="Nama site Frappe (opsional)">
               <Input
                 value={form.erpnext_site}

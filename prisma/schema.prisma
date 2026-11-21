@@ -450,6 +450,10 @@ model Order {
   @@index([customerEmail])
   @@index([couponCode])
   @@index([customerId])
+  // Back-relations for Payment + OrderReview (Phase 2 security fix).
+  // When an Order is deleted, its Payment + OrderReview are cascaded.
+  payment        Payment?
+  review         OrderReview?
 }
 
 // ============================================================
@@ -472,7 +476,9 @@ model Order {
 model OrderReview {
   id              String   @id @default(cuid())
   /// One review per order. orderId is unique.
+  /// FK relation to Order with cascade delete (Phase 2 security fix).
   orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   /// Snapshot of trackingId for display.
   trackingId      String
   customerName    String
@@ -632,7 +638,10 @@ model CouponUsage {
 
 model Payment {
   id          String   @id @default(cuid())
+  /// FK relation to Order with cascade delete (Phase 2 security fix).
+  /// Was: no relation → orphaned Payment rows when Order deleted.
   orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   trackingId  String   // snapshot for customer reference
   method      String   // "cod" | "transfer" | "ewallet"
   amount      Int      // in IDR

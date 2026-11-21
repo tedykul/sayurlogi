@@ -30,7 +30,8 @@ export type Permission =
   | "faqs:write"
   | "testimonials:write"
   | "favicon:upload"
-  | "about:upload";
+  | "about:upload"
+  | "banner:upload";
 
 export const PERMISSIONS: Record<Permission, AdminRole[]> = {
   "content:update": ["super_admin", "admin"],
@@ -49,6 +50,7 @@ export const PERMISSIONS: Record<Permission, AdminRole[]> = {
   "testimonials:write": ["super_admin", "admin"],
   "favicon:upload": ["super_admin", "admin"],
   "about:upload": ["super_admin", "admin"],
+  "banner:upload": ["super_admin", "admin"],
 };
 
 type AdminRole = "super_admin" | "admin" | "staff" | "viewer";

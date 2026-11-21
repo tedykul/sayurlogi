@@ -30,10 +30,29 @@ export async function POST(req: NextRequest) {
   try {
     const payload: CheckoutPayload = await req.json();
 
-    // basic validation
+    // Phase 2: input validation with length caps (prevent oversized payload DoS)
+    const MAX_NAME = 200;
+    const MAX_PHONE = 20;
+    const MAX_ADDRESS = 500;
+    const MAX_CITY = 100;
+    const MAX_EMAIL = 200;
+    const MAX_NOTES = 1000;
+
     if (!payload.customer?.name || !payload.customer?.phone || !payload.customer?.address) {
       return NextResponse.json(
         { success: false, message: "Nama, telepon, dan alamat wajib diisi." },
+        { status: 400 }
+      );
+    }
+    // Length caps — reject oversized input
+    if (payload.customer.name.length > MAX_NAME ||
+        payload.customer.phone.length > MAX_PHONE ||
+        payload.customer.address.length > MAX_ADDRESS ||
+        (payload.customer.city && payload.customer.city.length > MAX_CITY) ||
+        (payload.customer.email && payload.customer.email.length > MAX_EMAIL) ||
+        (payload.customer.notes && payload.customer.notes.length > MAX_NOTES)) {
+      return NextResponse.json(
+        { success: false, message: "Input melebihi batas panjang yang diizinkan." },
         { status: 400 }
       );
     }

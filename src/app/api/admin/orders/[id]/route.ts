@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateOrderStatus, getOrderById, type OrderStatus } from "@/lib/orders";
-import { verifyAdmin } from "@/lib/admin-auth";
+import { requirePermission, isAuthResult, type AuthResult } from "@/lib/permissions";
 import { logAdminAction } from "@/lib/audit";
 import { notifyOrderStatusChanged } from "@/lib/wa-notification";
 
@@ -16,9 +16,8 @@ const VALID_STATUSES: OrderStatus[] = [
 
 // GET /api/admin/orders/[id] — get single order by internal ID
 export async function GET(_req: NextRequest, { params }: Params) {
-  if (!(await verifyAdmin())) {
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
-  }
+  const auth = await requirePermission("orders:read");
+  if (!isAuthResult(auth)) return auth;
   try {
     const { id } = await params;
     const order = await getOrderById(id);
@@ -35,9 +34,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 // PUT /api/admin/orders/[id] — update order status
 // Body: { status: OrderStatus }
 export async function PUT(req: NextRequest, { params }: Params) {
-  if (!(await verifyAdmin())) {
+  const auth = await requirePermission("orders:write");
+  if (!isAuthResult(auth)) {
     await logAdminAction({ action: "unauthorized_attempt", target: "order:update", success: false });
-    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    return auth;
   }
   try {
     const { id } = await params;

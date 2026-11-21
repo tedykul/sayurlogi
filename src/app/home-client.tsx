@@ -435,7 +435,11 @@ export function HomeClient({ content }: HomeClientProps) {
       {/* onCheckout: close cart sheet first to prevent visual overlap
           (cart drawer was overlapping with checkout dialog, both
           showing totals + CTAs at the same time — E1 audit bug #1) */}
-      <CartSheet onCheckout={() => { useCartStore.getState().closeCart(); setCheckoutOpen(true); }} />
+      <CartSheet
+        onCheckout={() => { useCartStore.getState().closeCart(); setCheckoutOpen(true); }}
+        freeShippingThreshold={content.freeShippingThreshold}
+        shippingFee={content.shippingFee}
+      />
       <CheckoutDialog
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}

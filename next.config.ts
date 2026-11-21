@@ -68,7 +68,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   typescript: {
-    ignoreBuildErrors: true,
+    // Security fix: was `true` — type errors silently shipped to production.
+    // Now: `false` — build will fail on type errors (catches bugs before deploy).
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
   async headers() {

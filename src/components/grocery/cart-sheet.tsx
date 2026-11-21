@@ -13,19 +13,25 @@ import { ProductImage } from "./product-image";
 
 interface CartSheetProps {
   onCheckout: () => void;
+  /** Admin-configured free shipping threshold (IDR). Falls back to 50000. */
+  freeShippingThreshold?: number | null;
+  /** Admin-configured shipping fee (IDR). Falls back to 9000. */
+  shippingFee?: number | null;
 }
 
-export function CartSheet({ onCheckout }: CartSheetProps) {
+export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: CartSheetProps) {
   const { items, isOpen, closeCart, updateQty, removeItem, clear } = useCartStore();
   const totalItems = useCartStore((s) => s.getTotalItems());
   const totalPrice = useCartStore((s) => s.getTotalPrice());
 
-  const FREE_SHIPPING_THRESHOLD = 50000;
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - totalPrice);
-  const freeShipping = totalPrice >= FREE_SHIPPING_THRESHOLD;
-  const shipping = freeShipping ? 0 : 9000;
+  // Phase 2 fix: use admin-configured values (was hardcoded 50000 + 9000)
+  const FREE_SHIPPING = freeShippingThreshold ?? 50000;
+  const SHIPPING_FEE = shippingFee ?? 9000;
+  const remaining = Math.max(0, FREE_SHIPPING - totalPrice);
+  const freeShipping = totalPrice >= FREE_SHIPPING;
+  const shipping = freeShipping ? 0 : SHIPPING_FEE;
   const grandTotal = totalPrice + shipping;
-  const progressPct = Math.min(100, (totalPrice / FREE_SHIPPING_THRESHOLD) * 100);
+  const progressPct = Math.min(100, (totalPrice / FREE_SHIPPING) * 100);
 
   return (
     <Sheet open={isOpen} onOpenChange={(o) => !o && closeCart()}>

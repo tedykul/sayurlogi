@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSharedWishlist, type SharedWishlistItem } from "@/lib/shared-wishlist";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -7,13 +8,25 @@ export const dynamic = "force-dynamic";
 // POST /api/wishlist/share
 // ============================================================
 // Public endpoint (no auth — wishlist is localStorage-based).
-// Body: { items: SharedWishlistItem[], title?: string }
-//   each item: { id, name, price, emoji, image, unit, itemCode, category }
-// Response: { success, url, token, expiresAt }
-//   url: relative path "/?wishlist=TOKEN" (client constructs absolute)
+// Rate limited: 10 per 15 min (prevent DB spam).
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  // Rate limit: prevent spamming SharedWishlist table
+  const rateLimit = await checkRateLimit("wishlist-share");
+  if (rateLimit.blocked) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terlalu banyak permintaan. Coba lagi nanti.",
+        retryAfter: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      }
+    );
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const rawItems = Array.isArray(body.items) ? body.items : [];
