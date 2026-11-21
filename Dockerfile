@@ -1,13 +1,13 @@
-FROM node:20-alpine
+FROM oven/bun:1
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY . .
-RUN if [ -d "prisma" ]; then npx prisma generate; fi
+RUN if [ -d "prisma" ]; then bunx prisma generate; fi
 
-RUN npm run build
+RUN bun run build
 
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["bun", "run", "start"]
