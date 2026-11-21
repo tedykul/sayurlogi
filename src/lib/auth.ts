@@ -43,7 +43,18 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.ADMIN_PASSWORD || "dev-secret-change-in-production",
+  // Security fix: refuse to run with publicly known secret in production.
+  // In dev, allow fallback so the app doesn't crash on first run.
+  secret: (() => {
+    const secret = process.env.NEXTAUTH_SECRET || process.env.ADMIN_PASSWORD;
+    if (!secret && process.env.NODE_ENV === "production") {
+      throw new Error(
+        "FATAL: NEXTAUTH_SECRET env var is required in production. " +
+        "Generate one with: openssl rand -base64 32"
+      );
+    }
+    return secret || "dev-secret-change-in-production";
+  })(),
 };
 
 declare module "next-auth" {

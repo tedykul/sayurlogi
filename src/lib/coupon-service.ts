@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import QRCode from "qrcode";
+import crypto from "crypto";
 import type { CouponType } from "@/lib/coupons";
 
 // ============================================================
@@ -19,12 +20,14 @@ import type { CouponType } from "@/lib/coupons";
 // description, clickCount, shareCount, printedCount, printedAt).
 // ============================================================
 
-/** Generate a random coupon code. Format: PREFIX + 6 alphanumeric. */
+/** Generate a random coupon code. Format: PREFIX + 6 alphanumeric.
+ * Uses crypto.randomInt for unpredictability (Math.random is predictable).
+ */
 export function generateCode(prefix?: string, length = 6): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I,O,0,1 (readable)
   let code = "";
   for (let i = 0; i < length; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[crypto.randomInt(0, chars.length)];
   }
   return prefix ? `${prefix.toUpperCase()}${code}` : code;
 }

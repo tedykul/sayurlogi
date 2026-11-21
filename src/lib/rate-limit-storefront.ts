@@ -143,7 +143,15 @@ export function getBucketForPath(pathname: string, method?: string): string {
   if (pathname === "/api/checkout") return "checkout";
 
   // Coupon validation (prevent brute force coupon codes)
-  if (pathname === "/api/coupon/validate") return "coupon-validate";
+  // Fix: matcher was `/api/coupon/validate` (singular), but the actual route
+  // is `/api/coupons/[code]/validate` (plural + path param). Also match the
+  // legacy singular route for backward compat.
+  if (
+    pathname === "/api/coupon/validate" ||
+    (pathname.startsWith("/api/coupons/") && pathname.endsWith("/validate"))
+  ) {
+    return "coupon-validate";
+  }
 
   // Products (high traffic, but prevent scraping)
   if (pathname === "/api/products") return "products";

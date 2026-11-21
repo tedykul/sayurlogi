@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { syncSingleItem } from "@/lib/erpnext-sync";
 import { logAdminAction } from "@/lib/audit";
 import { db } from "@/lib/db";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -62,9 +63,17 @@ export async function POST(req: NextRequest) {
 
   try {
     // 1. Secret validation (if configured)
+    // Security fix: use constant-time comparison to prevent timing attacks.
+    // Was: `secretHeader !== WEBHOOK_SECRET` (non-constant-time).
     if (WEBHOOK_SECRET) {
       const secretHeader = req.headers.get("x-webhook-secret") || "";
-      if (secretHeader !== WEBHOOK_SECRET) {
+      const secretBuffer = Buffer.from(WEBHOOK_SECRET);
+      const headerBuffer = Buffer.from(secretHeader);
+      // Only compare if lengths match (timingSafeEqual requires equal length)
+      const isValid =
+        secretBuffer.length === headerBuffer.length &&
+        crypto.timingSafeEqual(secretBuffer, headerBuffer);
+      if (!isValid) {
         console.warn("[webhook] Unauthorized: invalid secret");
         return NextResponse.json(
           { success: false, message: "Unauthorized webhook.", code: "INVALID_SECRET" },

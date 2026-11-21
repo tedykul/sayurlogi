@@ -15,10 +15,18 @@ import crypto from "crypto";
 // In-memory cache: loaded once, refreshed on save.
 // ============================================================
 
-const ENCRYPTION_KEY =
-  process.env.INTEGRATION_ENCRYPTION_KEY ||
-  process.env.NEXTAUTH_SECRET ||
-  "dev-encryption-key-change-in-production-32b";
+// Security fix: refuse to use publicly known key in production.
+const ENCRYPTION_KEY = (() => {
+  const key = process.env.INTEGRATION_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET;
+  if (!key && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FATAL: INTEGRATION_ENCRYPTION_KEY or NEXTAUTH_SECRET env var required " +
+      "in production for encrypting ERPNext/Midtrans credentials. " +
+      "Generate one with: openssl rand -base64 32"
+    );
+  }
+  return key || "dev-encryption-key-change-in-production-32b";
+})();
 
 // Pad/truncate key to 32 bytes for AES-256
 function getKey(): Buffer {

@@ -9,6 +9,17 @@ import type { CartItem } from "@/types/grocery";
 //   Collision-safe: 36^6 = 2.2 billion combinations.
 // ============================================================
 
+// ============================================================
+// Tracking ID generation — uses crypto.randomInt for unpredictability.
+// ============================================================
+// Security fix: Math.random() is predictable — an attacker who observes
+// one tracking ID can predict nearby ones (tracking IDs gate access to
+// customer PII via /api/orders/[trackingId]). Now uses crypto.randomInt
+// (cryptographically secure). Collision is still checked in DB.
+// ============================================================
+
+import crypto from "crypto";
+
 const TRACKING_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1 (confusing)
 const TRACKING_ID_LENGTH = 6;
 const TRACKING_PREFIX = "SB"; // SayurLogi
@@ -18,7 +29,7 @@ export async function generateTrackingId(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
     let id = TRACKING_PREFIX;
     for (let i = 0; i < TRACKING_ID_LENGTH - TRACKING_PREFIX.length; i++) {
-      id += TRACKING_ID_CHARS[Math.floor(Math.random() * TRACKING_ID_CHARS.length)];
+      id += TRACKING_ID_CHARS[crypto.randomInt(0, TRACKING_ID_CHARS.length)];
     }
     // Check collision
     const existing = await db.order.findUnique({

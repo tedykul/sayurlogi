@@ -57,6 +57,19 @@ export async function POST(req: NextRequest) {
     const isActive =
       typeof body.isActive === "boolean" ? body.isActive : true;
 
+    // Security fix: prevent privilege escalation — only super_admin can
+    // create super_admin users. An `admin` role user could previously set
+    // role="super_admin" on a new account → privilege escalation.
+    if (role === "super_admin" && auth.role !== "super_admin") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Hanya Super Admin yang dapat membuat akun Super Admin.",
+        },
+        { status: 403 }
+      );
+    }
+
     try {
       const user = await createUser({
         email: body.email,

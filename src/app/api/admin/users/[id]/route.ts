@@ -64,7 +64,23 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     } = {};
     if (typeof body.name === "string") patch.name = body.name;
     if (typeof body.password === "string" && body.password) patch.password = body.password;
-    if (typeof body.role === "string" && !isSelf) patch.role = body.role as AdminRole;
+    if (typeof body.role === "string" && !isSelf) {
+      // Security fix: prevent privilege escalation — only super_admin
+      // can assign super_admin role to others. An `admin` could
+      // previously promote another user (or themselves via another
+      // account) to super_admin.
+      const newRole = body.role as AdminRole;
+      if (newRole === "super_admin" && auth.role !== "super_admin") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Hanya Super Admin yang dapat memberikan role Super Admin.",
+          },
+          { status: 403 }
+        );
+      }
+      patch.role = newRole;
+    }
     if (typeof body.isActive === "boolean" && !isSelf) patch.isActive = body.isActive;
 
     try {

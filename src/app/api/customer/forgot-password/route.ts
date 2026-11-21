@@ -92,26 +92,21 @@ export async function POST(req: NextRequest) {
         emailError = sendResult.error || null;
       }
 
-      // Priority 3: Fallback to ContactMessage table + console.log
+      // Priority 3: Fallback — log ONLY (no plain text token in DB).
+      // Security fix: Previously, the full reset URL (including token)
+      // was persisted to ContactMessage table, visible to any admin.
+      // This allowed account takeover: admin reads reset URL → visits
+      // it → changes customer's password. Now we only log a redacted
+      // reference (email + timestamp) — admin must use the proper
+      // "resend reset email" flow (which sends via SMTP, not via DB).
       if (!emailSent) {
-        console.log(
-          `[forgot-password] Reset link for ${email} (source=${source}, ${source === "db" ? "DB SMTP FAILED" : source === "env" ? "ENV SMTP FAILED" : "no SMTP configured"}): ${resetUrl}`
+        console.warn(
+          `[forgot-password] SMTP failed for ${email} (source=${source}). ` +
+          `Reset token generated but NOT emailed. Admin should configure SMTP ` +
+          `or manually trigger resend. Token is NOT persisted in DB for security.`
         );
         if (emailError) {
           console.warn(`[forgot-password] SMTP error (source=${source}): ${emailError}`);
-        }
-
-        try {
-          await db.contactMessage.create({
-            data: {
-              name: result.customerName || "Customer",
-              email,
-              phone: "-",
-              message: `[PASSWORD RESET REQUEST] Reset URL: ${resetUrl}\n\nThis is an automated message — password reset was requested for this email. URL expires in 1 hour. After reset, this record can be deleted.\n\nSMTP source: ${source}${emailError ? `\nSMTP error: ${emailError}` : "\nSMTP not configured — admin must manually send this URL to the customer."}`,
-            },
-          });
-        } catch {
-          // Non-blocking — don't fail the API if ContactMessage fails
         }
       } else {
         console.log(`[forgot-password] Reset email sent to ${email} (source=${source})`);
