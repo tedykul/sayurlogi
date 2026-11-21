@@ -161,6 +161,8 @@ export async function GET() {
         customerName: true,
         customerEmail: true,
         customerPhone: true,
+        customerAddress: true,
+        deliveryMethod: true,
         itemsJson: true,
         total: true,
         status: true,
