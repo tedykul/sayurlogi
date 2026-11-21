@@ -1,5 +1,7 @@
-FROM oven/bun:1
+FROM node:20-alpine
 WORKDIR /app
+
+RUN npm install -g bun
 
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
