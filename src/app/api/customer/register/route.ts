@@ -36,10 +36,18 @@ export async function POST(req: NextRequest) {
         );
       }
       if (allowedCities.length > 0 && !allowedCities.includes(inputCity)) {
+        // Phase 1: return structured response with city list for UI formatting.
+        // Frontend can bold the city name + show as warning (not error).
+        const cityList = (setting.serviceAreaCities || "Makassar")
+          .split(",")
+          .map((c) => c.trim())
+          .join(", ");
         return NextResponse.json(
           {
             success: false,
-            message: `Maaf, saat ini kami hanya melayani kota: ${setting.serviceAreaCities}.`,
+            message: `Mohon maaf, saat ini kami baru melayani area: ${cityList}.`,
+            code: "SERVICE_AREA_RESTRICTED",
+            allowedCities: cityList,
           },
           { status: 400 }
         );

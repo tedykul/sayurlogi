@@ -255,7 +255,16 @@ export function CheckoutDialog({ open, onOpenChange, onTrackOrder, onCheckoutSuc
         if (onCheckoutSuccess) onCheckoutSuccess();
       } else {
         setStep("form");
-        toast.error(data.message || "Gagal membuat pesanan");
+        // Phase 2: show service area errors as warning (amber), not error (red).
+        // Other errors stay as toast.error.
+        if (data.code === "SERVICE_AREA_RESTRICTED") {
+          toast.warning(data.message, {
+            duration: 6000,
+            description: "Pilih kota dalam area layanan kami untuk melanjutkan.",
+          });
+        } else {
+          toast.error(data.message || "Gagal membuat pesanan");
+        }
       }
     } catch (err) {
       setStep("form");

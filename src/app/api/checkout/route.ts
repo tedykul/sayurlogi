@@ -113,10 +113,16 @@ export async function POST(req: NextRequest) {
         .filter(Boolean);
       const customerCity = payload.customer.city.trim().toLowerCase();
       if (allowedCities.length > 0 && !allowedCities.includes(customerCity)) {
+        const cityList = (setting.serviceAreaCities || "Makassar")
+          .split(",")
+          .map((c) => c.trim())
+          .join(", ");
         return NextResponse.json(
           {
             success: false,
-            message: `Maaf, saat ini kami hanya melayani kota: ${setting.serviceAreaCities}.`,
+            message: `Mohon maaf, saat ini kami baru melayani area: ${cityList}.`,
+            code: "SERVICE_AREA_RESTRICTED",
+            allowedCities: cityList,
           },
           { status: 400 }
         );

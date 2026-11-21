@@ -116,7 +116,24 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
-          <SonnerToaster position="top-center" richColors closeButton />
+          <SonnerToaster
+            position="top-center"
+            richColors
+            closeButton
+            toastOptions={{
+              duration: 5000,
+              style: {
+                borderRadius: "12px",
+                padding: "12px 16px",
+                fontSize: "13px",
+                fontWeight: 500,
+              },
+              classNames: {
+                warning: "border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-100 dark:border-amber-800",
+                error: "border-red-300 bg-red-50 text-red-900 dark:bg-red-950/60 dark:text-red-100 dark:border-red-800",
+              },
+            }}
+          />
           <CookieConsent />
         </ThemeProvider>
       </body>

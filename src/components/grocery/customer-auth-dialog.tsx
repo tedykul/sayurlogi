@@ -401,6 +401,8 @@ function RegisterForm({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Phase 2: distinguish service area warnings (amber) from real errors (red).
+  const [errorType, setErrorType] = useState<"error" | "warning">("error");
   const [phoneWarning, setPhoneWarning] = useState("");
   const [emailWarning, setEmailWarning] = useState("");
   // Toggle show/hide password — pure UI state, no API impact.
@@ -441,9 +443,12 @@ function RegisterForm({
       if (data.success && data.customer) {
         onSuccess(data.customer);
       } else {
+        // Phase 2: service area restriction = warning (amber), other = error (red)
+        setErrorType(data.code === "SERVICE_AREA_RESTRICTED" ? "warning" : "error");
         setError(data.message || "Pendaftaran gagal");
       }
     } catch {
+      setErrorType("error");
       setError("Koneksi gagal");
     } finally {
       setLoading(false);
@@ -625,7 +630,16 @@ function RegisterForm({
           />
         )}
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <div className={cn(
+          "rounded-lg p-2.5 text-xs",
+          errorType === "warning"
+            ? "bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200"
+            : "bg-destructive/10 border border-destructive/20 text-destructive"
+        )}>
+          {error}
+        </div>
+      )}
       <Button type="submit" disabled={loading} className="h-10 w-full">
         {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
         Daftar
