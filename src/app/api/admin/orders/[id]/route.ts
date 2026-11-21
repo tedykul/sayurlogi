@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateOrderStatus, getOrderById, type OrderStatus } from "@/lib/orders";
-import { requirePermission, isAuthResult, type AuthResult } from "@/lib/permissions";
+import { requirePermission, isAuthResult } from "@/lib/permissions";
 import { logAdminAction } from "@/lib/audit";
 import { notifyOrderStatusChanged } from "@/lib/wa-notification";
 
