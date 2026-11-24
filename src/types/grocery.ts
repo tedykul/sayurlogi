@@ -93,10 +93,25 @@ export interface CheckoutPayload {
   deliverySlotId?: string;
   /// Optional delivery zone ID (for internal delivery shipping calc).
   deliveryZoneId?: string;
+  /// When true, skips the existing-customer dedup check.
+  /// Set by frontend after user explicitly chooses "Continue as guest"
+  /// when warned that their email/phone matches an existing account.
+  /// Backward compat: old clients don't send this field → dedup runs.
+  allowGuestOverride?: boolean;
 }
 
 export interface CheckoutResponse {
   success: boolean;
+  /** Stable error code for frontend branching.
+   *  - "EXISTING_CUSTOMER": email/phone matches existing account.
+   *    Frontend should prompt: login or continue as guest.
+   *  - undefined for generic errors / success.
+   *  Backward compat: old clients read `message` field directly. */
+  code?: "EXISTING_CUSTOMER";
+  /** When code === "EXISTING_CUSTOMER": masked email/phone for UX.
+   *  e.g. "us***@example.com", "0812****1234". */
+  existingEmail?: string;
+  existingPhone?: string;
   /** ERPNext Sales Order name if successful */
   salesOrderName?: string;
   /** Customer-facing tracking ID (e.g., "SB3X9K") */

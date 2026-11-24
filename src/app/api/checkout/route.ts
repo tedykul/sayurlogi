@@ -12,6 +12,7 @@ import { saveAbandonedCart, markCartConverted } from "@/lib/abandoned-cart";
 import { db } from "@/lib/db";
 import { calculateShipping } from "@/lib/delivery-zones";
 import { bookSlot, isSchedulingEnabled } from "@/lib/delivery-slots";
+import { maskEmail, maskPhone, phoneVariants } from "@/lib/pii-mask";
 import type { CheckoutPayload } from "@/types/grocery";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,69 @@ export async function POST(req: NextRequest) {
         { success: false, message: "Keranjang belanja kosong." },
         { status: 400 }
       );
+    }
+
+    // ============================================================
+    // Soft dedup check (Solusi C) — detect guest checkout using
+    // email/phone that matches an existing Customer account.
+    // ============================================================
+    // Behavior:
+    //   - If customer is logged in → skip (use logged-in Customer).
+    //   - If guest + payload.allowGuestOverride === true → skip
+    //     (user already acknowledged the warning on frontend).
+    //   - Otherwise: lookup Customer by email OR phone variants.
+    //     If match found → return 409 with code "EXISTING_CUSTOMER"
+    //     + masked identifiers. Frontend prompts login vs guest.
+    //
+    // Backward compat:
+    //   - Old clients don't send `allowGuestOverride` → defaults to
+    //     false → dedup runs. Old client just shows `message` field
+    //     (still functional, just less UX polish).
+    //   - Old clients that re-submit on error will work if frontend
+    //     catches the message and lets user retry. New clients
+    //     catch `code === "EXISTING_CUSTOMER"` → show dialog →
+    //     re-submit with allowGuestOverride=true.
+    // ============================================================
+    const customerAuth = await verifyCustomerAuth();
+    const allowOverride = payload.allowGuestOverride === true;
+
+    if (!customerAuth && !allowOverride) {
+      const email = payload.customer.email?.trim().toLowerCase() || "";
+      const phone = payload.customer.phone.trim();
+      const phoneOpts = phoneVariants(phone);
+
+      // Build OR clause: match by email (if provided) OR any phone variant
+      const orClauses: Array<{ email: string } | { phone: { in: string[] } }> = [];
+      if (email) orClauses.push({ email });
+      if (phoneOpts.length > 0) orClauses.push({ phone: { in: phoneOpts } });
+
+      if (orClauses.length > 0) {
+        const existing = await db.customer.findFirst({
+          where: { OR: orClauses },
+          select: { email: true, phone: true, active: true },
+        });
+
+        if (existing) {
+          // Match found — block guest checkout, ask user to choose.
+          // Return masked identifiers so user can recognize their
+          // own account without leaking full PII.
+          const matchedByEmail = email && existing.email === email;
+          return NextResponse.json(
+            {
+              success: false,
+              code: "EXISTING_CUSTOMER",
+              message:
+                "Email atau nomor telepon Anda sudah terdaftar. " +
+                "Login untuk melihat riwayat pesanan & checkout lebih cepat, " +
+                "atau lanjut sebagai guest.",
+              existingEmail: maskEmail(existing.email),
+              existingPhone: maskPhone(existing.phone),
+              matchedByEmail,
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     // 0. Validate cart items against DB — remove stale/unpublished
@@ -229,9 +293,9 @@ export async function POST(req: NextRequest) {
     // 4. Estimate delivery time (default fallback)
     const estimate = estimateDelivery(payload.deliveryMethod);
 
-    // 5. Resolve customer account (if logged in). Guest checkout
-    //    still works (customerId stays null).
-    const customerAuth = await verifyCustomerAuth();
+    // 5. Customer account resolved earlier (Phase 2 dedup check).
+    //    customerAuth is non-null when logged in, null for guest.
+    //    Guest checkout still works (customerId stays null on Order).
 
     // 5b. Book delivery slot (if scheduling enabled + slot provided).
     //     Pickup orders don't need a slot. Falls back to default
