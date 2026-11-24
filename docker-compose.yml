@@ -4,6 +4,12 @@ services:
     container_name: sayurlogi-app
     restart: always
     network_mode: "host"
+    environment:
+      # Next.js standalone binds to hostname IP by default (127.0.1.1 on
+      # Ubuntu). Force 0.0.0.0 so it listens on ALL interfaces — Caddy
+      # (127.0.0.1:3000) and localhost both reach the app.
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
     env_file:
       - .env
     volumes:

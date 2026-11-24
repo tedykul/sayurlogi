@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, User, Mail, Phone, Lock, MapPin, UserPlus, LogIn, AlertCircle, Eye, EyeOff, Check } from "lucide-react";
 import { useCustomerStore } from "@/lib/store/customer";
 import { GoogleSignInButton } from "./google-signin-button";
 import { ForgotPasswordDialog } from "./forgot-password-dialog";
@@ -408,10 +408,68 @@ function RegisterForm({
   // Toggle show/hide password — pure UI state, no API impact.
   const [showPassword, setShowPassword] = useState(false);
 
+  // Phase 2: real-time duplicate check (debounced)
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [phoneTaken, setPhoneTaken] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [checkingPhone, setCheckingPhone] = useState(false);
+
+  useEffect(() => {
+    if (!form.email || form.email.length < 5 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setEmailTaken(false);
+      return;
+    }
+    setCheckingEmail(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customer/check?email=${encodeURIComponent(form.email)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEmailTaken(data.emailTaken === true);
+        }
+      } catch {
+      } finally {
+        setCheckingEmail(false);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.email]);
+
+  useEffect(() => {
+    if (!form.phone || form.phone.replace(/\D/g, "").length < 8) {
+      setPhoneTaken(false);
+      return;
+    }
+    setCheckingPhone(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customer/check?phone=${encodeURIComponent(form.phone)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPhoneTaken(data.phoneTaken === true);
+        }
+      } catch {
+      } finally {
+        setCheckingPhone(false);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.phone]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.password) {
       setError("Nama, email, telepon, dan password wajib diisi");
+      return;
+    }
+    if (emailTaken) {
+      setError("Email sudah terdaftar. Silakan login.");
+      setErrorType("error");
+      return;
+    }
+    if (phoneTaken) {
+      setError("Nomor telepon sudah terdaftar. Silakan gunakan nomor lain.");
+      setErrorType("error");
       return;
     }
     // Phase 3: if service area restricted, city is required + must be in allowed list
@@ -511,9 +569,34 @@ function RegisterForm({
               }}
               placeholder="kamu@email.com"
               disabled={loading}
-              className={cn("pl-9 h-10", emailWarning && "border-amber-500/50 ring-1 ring-amber-500/20")}
+              className={cn(
+                "pl-9 h-10",
+                emailWarning && "border-amber-500/50 ring-1 ring-amber-500/20",
+                emailTaken && "border-destructive/50 ring-1 ring-destructive/20"
+              )}
             />
-            {emailWarning && (
+            {checkingEmail && form.email.length >= 5 && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                Mengecek...
+              </p>
+            )}
+            {emailTaken && !checkingEmail && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                Email sudah terdaftar.{" "}
+                <button type="button" onClick={onSwitchToLogin} className="font-semibold text-primary hover:underline">
+                  Login di sini
+                </button>
+              </p>
+            )}
+            {!emailTaken && !checkingEmail && form.email.length >= 5 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && (
+              <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3 shrink-0" />
+                Email tersedia
+              </p>
+            )}
+            {emailWarning && !emailTaken && (
               <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                 <AlertCircle className="h-3 w-3 shrink-0" />
                 {emailWarning}
@@ -541,11 +624,33 @@ function RegisterForm({
               }}
               placeholder="0812xxxxxxx"
               disabled={loading}
-              className={cn("pl-9 h-10", phoneWarning && "border-amber-500/50 ring-1 ring-amber-500/20")}
+              className={cn(
+                "pl-9 h-10",
+                phoneWarning && "border-amber-500/50 ring-1 ring-amber-500/20",
+                phoneTaken && "border-destructive/50 ring-1 ring-destructive/20"
+              )}
               inputMode="numeric"
               pattern="[0-9]*"
             />
-            {phoneWarning && (
+            {checkingPhone && form.phone.replace(/\D/g, "").length >= 8 && (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                Mengecek...
+              </p>
+            )}
+            {phoneTaken && !checkingPhone && (
+              <p className="flex items-center gap-1 text-xs text-destructive">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                Nomor telepon sudah terdaftar. Gunakan nomor lain.
+              </p>
+            )}
+            {!phoneTaken && !checkingPhone && form.phone.replace(/\D/g, "").length >= 8 && !phoneWarning && (
+              <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3 shrink-0" />
+                Nomor tersedia
+              </p>
+            )}
+            {phoneWarning && !phoneTaken && (
               <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                 <AlertCircle className="h-3 w-3 shrink-0" />
                 {phoneWarning}

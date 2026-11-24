@@ -29,6 +29,25 @@ import { NextResponse } from "next/server";
 // both sides.
 // ============================================================
 
+
+// ============================================================
+// normalizePhone - convert Indonesian phone formats to 62xxx.
+// 081234567890 -> 6281234567890, +6281234567890 -> 6281234567890
+// 6281234567890 -> 6281234567890 (already normalized)
+// Exported so /api/customer/check can import + use same normalization.
+// ============================================================
+export function normalizePhone(phone: string): string {
+  let p = phone.replace(/[\s\-()]/g, "");
+  if (p.startsWith("+62")) {
+    p = p.substring(1);
+  } else if (p.startsWith("0")) {
+    p = "62" + p.substring(1);
+  } else if (!p.startsWith("62") && p.startsWith("8")) {
+    p = "62" + p;
+  }
+  return p;
+}
+
 const BCRYPT_ROUNDS = 10;
 
 export interface CustomerPublic {
@@ -74,7 +93,7 @@ export async function registerCustomer(opts: {
 }): Promise<{ customer: CustomerPublic; token: string; expiresAt: Date }> {
   const name = opts.name.trim();
   const email = opts.email.trim().toLowerCase();
-  const phone = opts.phone.trim();
+  const phone = normalizePhone(opts.phone.trim());
   const password = opts.password;
 
   if (!name) throw new Error("Nama wajib diisi.");
@@ -275,12 +294,13 @@ export async function updateCustomerProfile(
   const data: Record<string, unknown> = {};
   if (typeof opts.name === "string" && opts.name.trim()) data.name = opts.name.trim();
   if (typeof opts.phone === "string" && opts.phone.trim().length >= 8) {
-    // Check phone uniqueness (excluding self)
+    // Phase 3: normalize phone before uniqueness check + DB update
+    const normalizedPhone = normalizePhone(opts.phone.trim());
     const existing = await db.customer.findFirst({
-      where: { phone: opts.phone.trim(), NOT: { id: customerId } },
+      where: { phone: normalizedPhone, NOT: { id: customerId } },
     });
     if (existing) throw new Error("Nomor telepon sudah dipakai akun lain.");
-    data.phone = opts.phone.trim();
+    data.phone = normalizedPhone;
   }
   if (opts.defaultAddress === null || typeof opts.defaultAddress === "string") {
     data.defaultAddress = opts.defaultAddress?.trim() || null;
