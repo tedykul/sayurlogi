@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Home, Sparkles, Phone } from "lucide-react";
+import { Home, Sparkles, Phone, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { adminFetch } from "@/lib/admin-client";
 import {
   AdminSectionHeading,
@@ -50,6 +52,15 @@ const HERO_FIELDS = [
   { key: "heroCtaSecondary", label: "Tombol Sekunder", placeholder: "Lihat Promo" },
 ] as const;
 
+const HERO_SOCIAL_FIELDS = [
+  { key: "heroRating", label: "Rating", placeholder: "4.9/5", hint: "Format: X.X/5" },
+  { key: "heroCustomerCount", label: "Jumlah Pelanggan", placeholder: "5.000+ pelanggan", hint: "Teks bebas" },
+  { key: "heroDeliveryTime", label: "Waktu Antar", placeholder: "Antar 2 jam", hint: "Kosongkan untuk sembunyikan" },
+  { key: "heroFreeShipMinOrder", label: "Min. Order Gratis Ongkir", placeholder: "min. Rp50rb", hint: "Hanya tampil kalau toggle aktif" },
+] as const;
+
+const HERO_SOCIAL_BOOL_KEY = "heroFreeShipEnabled" as const;
+
 const PROMO_FIELDS = [
   { key: "promoId", label: "Promo ID (ubah untuk reset dismiss)", placeholder: "promo-akhir-pekan-v1", hint: "Ubah ID ini kalau mau pakai promo baru — user yang sudah dismiss akan lihat lagi." },
   { key: "promoTitle", label: "Judul Promo", placeholder: "Promo Akhir Pekan!" },
@@ -65,7 +76,7 @@ const CONTACT_FIELDS = [
 
 export function HeroPromoContactEditor({ section }: { section: Section }) {
   const config = SECTION_CONFIG[section];
-  const [content, setContent] = useState<Record<string, string | null> | null>(null);
+  const [content, setContent] = useState<Record<string, string | boolean | null> | null>(null);
   const [loading, setLoading] = useState(true);
   const { dirty, markSaved } = useUnsavedContent(content);
 
@@ -74,7 +85,7 @@ export function HeroPromoContactEditor({ section }: { section: Section }) {
     adminFetch<Record<string, unknown>>("/api/admin/content")
       .then((res) => {
         if (cancelled) return;
-        setContent((res.content as Record<string, string | null> | null) ?? {});
+        setContent((res.content as Record<string, string | boolean | null> | null) ?? {});
       })
       .catch(() => {
         if (!cancelled) setContent({});
@@ -94,11 +105,22 @@ export function HeroPromoContactEditor({ section }: { section: Section }) {
     setContent((prev) => ({ ...(prev || {}), [key]: value }));
   };
 
+  const handleToggle = (key: string, value: boolean) => {
+    setContent((prev) => ({ ...(prev || {}), [key]: value }));
+  };
+
   const handleSave = async () => {
-    const payload: Record<string, string | null> = {};
+    const payload: Record<string, string | boolean | null> = {};
     for (const f of fields) {
       const key = f.key as string;
       payload[key] = content?.[key] ?? null;
+    }
+    if (section === "hero") {
+      for (const f of HERO_SOCIAL_FIELDS) {
+        const key = f.key as string;
+        payload[key] = content?.[key] ?? null;
+      }
+      payload[HERO_SOCIAL_BOOL_KEY] = content?.[HERO_SOCIAL_BOOL_KEY] ?? true;
     }
     await adminFetch("/api/admin/content", {
       method: "POST",
@@ -129,7 +151,7 @@ export function HeroPromoContactEditor({ section }: { section: Section }) {
             <AdminField key={f.key} label={f.label} hint={"hint" in f ? f.hint : undefined}>
               {"multiline" in f && f.multiline ? (
                 <Textarea
-                  value={content[f.key] ?? ""}
+                  value={(content[f.key] as string) ?? ""}
                   onChange={(e) => handleChange(f.key, e.target.value)}
                   placeholder={f.placeholder}
                   rows={3}
@@ -137,13 +159,55 @@ export function HeroPromoContactEditor({ section }: { section: Section }) {
                 />
               ) : (
                 <Input
-                  value={content[f.key] ?? ""}
+                  value={(content[f.key] as string) ?? ""}
                   onChange={(e) => handleChange(f.key, e.target.value)}
                   placeholder={f.placeholder}
                 />
               )}
             </AdminField>
           ))}
+          {section === "hero" && (
+            <>
+              <div className="flex items-center gap-2 pt-4 pb-1 border-t border-border">
+                <Star className="h-4 w-4 text-amber-500" />
+                <h4 className="text-sm font-semibold text-foreground">
+                  Social Proof Bar
+                </h4>
+                <span className="text-xs text-muted-foreground">
+                  · info strip di bawah subtitle hero
+                </span>
+              </div>
+
+              {HERO_SOCIAL_FIELDS.map((f) => (
+                <AdminField key={f.key} label={f.label} hint={"hint" in f ? f.hint : undefined}>
+                  <Input
+                    value={(content[f.key] as string) ?? ""}
+                    onChange={(e) => handleChange(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                  />
+                </AdminField>
+              ))}
+
+              <AdminField
+                label="Tampilkan Badge Gratis Ongkir"
+                hint="Matikan untuk sembunyikan badge gratis ongkir dari hero."
+              >
+                <div className="flex items-center gap-3 pt-1">
+                  <Switch
+                    id="hero-free-ship-toggle"
+                    checked={content[HERO_SOCIAL_BOOL_KEY] !== false}
+                    onCheckedChange={(v) => handleToggle(HERO_SOCIAL_BOOL_KEY, v)}
+                  />
+                  <Label htmlFor="hero-free-ship-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                    {content[HERO_SOCIAL_BOOL_KEY] !== false
+                      ? "Aktif — badge gratis ongkir tampil"
+                      : "Nonaktif — badge tersembunyi"}
+                  </Label>
+                </div>
+              </AdminField>
+            </>
+          )}
+
           <div className="flex items-center justify-end gap-2 pt-2">
             {dirty && (
               <span className="text-xs text-amber-600 dark:text-amber-400" role="status">

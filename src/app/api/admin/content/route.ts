@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
     const allowedFields = [
       "heroBadge", "heroTitleA", "heroTitleHighlight", "heroTitleB",
       "heroSubtitle", "heroCtaPrimary", "heroCtaSecondary",
+      "heroRating", "heroCustomerCount", "heroDeliveryTime", "heroFreeShipMinOrder",
       "promoId", "promoTitle", "promoDescription",
       "contactPhone", "contactEmail", "contactAddress", "contactHours",
       "aboutBadge", "aboutTitleA", "aboutTitleHighlight", "aboutTitleB",
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
       "welcomeBannerEnabled",
       "googleAuthEnabled",
       "serviceAreaRestricted",
+      "heroFreeShipEnabled",
     ];
 
     const data: Record<string, string | number | boolean | null> = {};

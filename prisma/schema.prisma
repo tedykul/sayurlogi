@@ -184,6 +184,13 @@ model SiteSetting {
   heroCtaPrimary   String? // "Mulai Belanja"
   heroCtaSecondary String? // "Lihat Promo"
 
+  // Hero social proof bar (rating + customer count + delivery + free ship)
+  heroRating           String?  // "4.9/5"
+  heroCustomerCount    String?  // "5.000+ pelanggan"
+  heroDeliveryTime     String?  // "Antar 2 jam"
+  heroFreeShipEnabled  Boolean? @default(true)
+  heroFreeShipMinOrder String?  // "min. Rp50rb"
+
   // Promo banner
   promoId          String? // unique campaign id (changing resets dismiss)
   promoTitle       String?

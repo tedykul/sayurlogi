@@ -24,6 +24,11 @@ async function main() {
         "Belanja sayuran organik dan buah-buahan pilihan langsung dari kebun. Tanpa perantara, harga jujur, kualitas terjamin.",
       heroCtaPrimary: "Mulai Belanja",
       heroCtaSecondary: "Lihat Promo",
+      heroRating: "4.9/5",
+      heroCustomerCount: "5.000+ pelanggan",
+      heroDeliveryTime: "Antar 2 jam",
+      heroFreeShipEnabled: true,
+      heroFreeShipMinOrder: "min. Rp50rb",
       // Promo
       promoId: "promo-akhir-pekan-v1",
       promoTitle: "Promo Akhir Pekan!",

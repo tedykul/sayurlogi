@@ -13,6 +13,11 @@ const DEFAULTS = {
   subtitle: "Belanja organik langsung dari kebun. Tanpa perantara, harga jujur.",
   ctaPrimary: "Mulai Belanja",
   ctaSecondary: "Lihat Promo",
+  rating: "4.9/5",
+  customerCount: "5.000+ pelanggan",
+  deliveryTime: "Antar 2 jam",
+  freeShipEnabled: true,
+  freeShipMinOrder: "min. Rp50rb",
 };
 
 interface HeroProps {
@@ -26,6 +31,11 @@ interface HeroProps {
     heroSubtitle: string | null;
     heroCtaPrimary: string | null;
     heroCtaSecondary: string | null;
+    heroRating?: string | null;
+    heroCustomerCount?: string | null;
+    heroDeliveryTime?: string | null;
+    heroFreeShipEnabled?: boolean | null;
+    heroFreeShipMinOrder?: string | null;
   };
 }
 
@@ -37,6 +47,11 @@ export function Hero({ onShopNow, onViewPromo, content }: HeroProps) {
   const subtitle = content?.heroSubtitle ?? DEFAULTS.subtitle;
   const ctaPrimary = content?.heroCtaPrimary ?? DEFAULTS.ctaPrimary;
   const ctaSecondary = content?.heroCtaSecondary ?? DEFAULTS.ctaSecondary;
+  const rating = content?.heroRating ?? DEFAULTS.rating;
+  const customerCount = content?.heroCustomerCount ?? DEFAULTS.customerCount;
+  const deliveryTime = content?.heroDeliveryTime ?? DEFAULTS.deliveryTime;
+  const freeShipEnabled = content?.heroFreeShipEnabled ?? DEFAULTS.freeShipEnabled;
+  const freeShipMinOrder = content?.heroFreeShipMinOrder ?? DEFAULTS.freeShipMinOrder;
 
   const handleViewPromo = () => {
     if (onViewPromo) {
@@ -96,7 +111,7 @@ export function Hero({ onShopNow, onViewPromo, content }: HeroProps) {
             {subtitle}
           </motion.p>
 
-          {/* Social proof bar — trust signals inline */}
+          {/* Social proof bar — trust signals inline (editable via admin) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -104,22 +119,30 @@ export function Hero({ onShopNow, onViewPromo, content }: HeroProps) {
             className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-foreground/60"
           >
             <span className="flex items-center gap-1">
-              <span className="flex">
+              <span className="flex" aria-hidden="true">
                 {[1,2,3,4,5].map(i => <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />)}
               </span>
-              <strong className="text-foreground">4.9/5</strong>
-              <span>· 5.000+ pelanggan</span>
+              <strong className="text-foreground">{rating}</strong>
+              {customerCount && <span>· {customerCount}</span>}
             </span>
-            <span className="hidden sm:inline text-border">|</span>
-            <span className="hidden sm:flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-orange-500" />
-              <strong className="text-foreground">Antar 2 jam</strong>
-            </span>
-            <span className="hidden sm:inline text-border">|</span>
-            <span className="hidden sm:flex items-center gap-1">
-              <Truck className="h-3.5 w-3.5 text-primary" />
-              <strong className="text-foreground">Gratis ongkir</strong> min. Rp50rb
-            </span>
+            {deliveryTime && (
+              <>
+                <span className="hidden sm:inline text-border">|</span>
+                <span className="hidden sm:flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-orange-500" />
+                  <strong className="text-foreground">{deliveryTime}</strong>
+                </span>
+              </>
+            )}
+            {freeShipEnabled && (
+              <>
+                <span className="hidden sm:inline text-border">|</span>
+                <span className="hidden sm:flex items-center gap-1">
+                  <Truck className="h-3.5 w-3.5 text-primary" />
+                  <strong className="text-foreground">Gratis ongkir</strong> {freeShipMinOrder}
+                </span>
+              </>
+            )}
           </motion.div>
 
           {/* CTA buttons */}
