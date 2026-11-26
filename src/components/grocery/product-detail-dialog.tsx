@@ -231,7 +231,10 @@ function ProductDetailContent({
       : 0;
   const savings = effectiveOldPrice ? effectiveOldPrice - effectivePrice : 0;
 
-  const inCart = items.find((i) => i.product.id === product.id);
+  // Phase: Product Variants — match cart line by product.id + variant.sku
+  const inCart = items.find(
+    (i) => i.product.id === product.id && i.variant?.sku === selectedVariant?.sku
+  );
   // Dynamic rating from OrderReview (store-wide, fetched on mount)
   const [realRating, setRealRating] = useState<number | null>(null);
   const [realReviewCount, setRealReviewCount] = useState<number>(0);
@@ -258,11 +261,11 @@ function ProductDetailContent({
   const handleAddToCart = () => {
     if (inCart) {
       const newQty = Math.min(inCart.quantity + qty, effectiveStock);
-      updateQty(product.id, newQty);
-      toast.success(`Diperbarui — ${product.name} jadi ${newQty} di keranjang`);
+      updateQty(product.id, newQty, selectedVariant?.sku);
+      toast.success(`Diperbarui — ${product.name}${selectedVariant ? ` ${selectedVariant.name}` : ""} jadi ${newQty} di keranjang`);
     } else {
-      addItem(product, qty);
-      toast.success(`${qty} × ${product.name} ditambahkan ke keranjang`);
+      addItem(product, qty, selectedVariant || undefined);
+      toast.success(`${qty} × ${product.name}${selectedVariant ? ` ${selectedVariant.name}` : ""} ditambahkan ke keranjang`);
     }
     onOpenChange(false);
   };
@@ -270,9 +273,9 @@ function ProductDetailContent({
   const handleBuyNow = () => {
     if (inCart) {
       const newQty = Math.min(inCart.quantity + qty, effectiveStock);
-      updateQty(product.id, newQty);
+      updateQty(product.id, newQty, selectedVariant?.sku);
     } else {
-      addItem(product, qty);
+      addItem(product, qty, selectedVariant || undefined);
     }
     onOpenChange(false);
     onBuyNow?.();

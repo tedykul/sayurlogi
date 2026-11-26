@@ -151,18 +151,35 @@ export async function POST(req: NextRequest) {
           // Filter published + NOT deletedFromErp — block checkout of
           // items that were removed from ERPNext (deletedFromErp=true).
           where: { itemCode: { in: cartItemCodes }, published: true, deletedFromErp: false },
-          select: { itemCode: true, price: true, name: true },
+          select: { itemCode: true, price: true, name: true, id: true },
         })
       : [];
     const validProductMap = new Map(validProducts.map((p) => [p.itemCode, p]));
+
+    // Phase: Product Variants — validate variant exists + override price/stock
+    const cartVariantSkus = payload.items
+      .map((i) => i.variant?.sku)
+      .filter(Boolean) as string[];
+    const validVariants = cartVariantSkus.length > 0
+      ? await db.productVariant.findMany({
+          where: { sku: { in: cartVariantSkus } },
+          select: { sku: true, price: true, stock: true, name: true, productId: true },
+        })
+      : [];
+    const validVariantMap = new Map(validVariants.map((v) => [v.sku, v]));
 
     // Filter payload.items: keep only those that exist + are published in DB
     const originalItemCount = payload.items.length;
     payload.items = payload.items.filter((i) => {
       const dbProduct = validProductMap.get(i.product.itemCode);
-      if (!dbProduct) return false; // stale item — remove from cart
-      // Update price from DB (in case cart has stale price)
+      if (!dbProduct) return false;
       i.product.price = dbProduct.price;
+      if (i.variant?.sku) {
+        const dbVariant = validVariantMap.get(i.variant.sku);
+        if (!dbVariant) return false;
+        i.variant.price = dbVariant.price;
+        i.variant.stock = dbVariant.stock;
+      }
       return true;
     });
 
@@ -277,9 +294,10 @@ export async function POST(req: NextRequest) {
       // Phase 2: pass existing ERPNext customer ID if linked
       erpCustomerId: payload.customer.erpCustomerId || undefined,
       items: payload.items.map((i) => ({
-        itemCode: i.product.itemCode,
+        // Phase: Product Variants — send variant SKU to ERPNext if set
+        itemCode: i.variant?.sku || i.product.itemCode,
         qty: i.quantity,
-        rate: i.product.price,
+        rate: i.variant?.price ?? i.product.price,
       })),
       deliveryMethod: payload.deliveryMethod,
       paymentMethod: payload.paymentMethod,

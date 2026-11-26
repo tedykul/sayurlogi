@@ -125,11 +125,18 @@ export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: Ca
             <div className="flex flex-col gap-2.5 p-4">
               <AnimatePresence initial={false}>
                 {items.map((item) => {
-                  const itemTotal = item.product.price * item.quantity;
-                  const hasDiscount = item.product.oldPrice && item.product.oldPrice > item.product.price;
+                  const effectivePrice = item.variant?.price ?? item.product.price;
+                  const effectiveOldPrice = item.variant?.oldPrice ?? item.product.oldPrice;
+                  const effectiveStock = item.variant?.stock ?? item.product.stock;
+                  const effectiveUnit = item.variant?.unit ?? item.product.unit;
+                  const itemTotal = effectivePrice * item.quantity;
+                  const hasDiscount = effectiveOldPrice && effectiveOldPrice > effectivePrice;
+                  const lineKey = item.variant?.sku
+                    ? `${item.product.id}::${item.variant.sku}`
+                    : item.product.id;
                   return (
                     <motion.div
-                      key={item.product.id}
+                      key={lineKey}
                       layout
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -152,11 +159,18 @@ export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: Ca
                       {/* Info */}
                       <div className="flex flex-1 flex-col gap-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="line-clamp-1 text-sm font-semibold leading-tight">
-                            {item.product.name}
-                          </h4>
+                          <div className="flex flex-col min-w-0">
+                            <h4 className="line-clamp-1 text-sm font-semibold leading-tight">
+                              {item.product.name}
+                            </h4>
+                            {item.variant && (
+                              <span className="text-xs text-primary font-medium leading-tight">
+                                {item.variant.name}
+                              </span>
+                            )}
+                          </div>
                           <button
-                            onClick={() => removeItem(item.product.id)}
+                            onClick={() => removeItem(item.product.id, item.variant?.sku)}
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive active:scale-95"
                             aria-label={`Hapus ${item.product.name}`}
                           >
@@ -164,14 +178,14 @@ export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: Ca
                           </button>
                         </div>
                         <span className="text-xs text-foreground/60">
-                          {formatIDR(item.product.price)} / {item.product.unit}
+                          {formatIDR(effectivePrice)} / {effectiveUnit}
                         </span>
 
                         <div className="mt-1 flex items-center justify-between gap-2">
                           {/* Qty stepper — bigger touch targets */}
                           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/40 p-0.5">
                             <button
-                              onClick={() => updateQty(item.product.id, item.quantity - 1)}
+                              onClick={() => updateQty(item.product.id, item.quantity - 1, item.variant?.sku)}
                               className="flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 transition-all"
                               aria-label="Kurangi"
                             >
@@ -181,8 +195,8 @@ export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: Ca
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateQty(item.product.id, item.quantity + 1)}
-                              disabled={item.quantity >= item.product.stock}
+                              onClick={() => updateQty(item.product.id, item.quantity + 1, item.variant?.sku)}
+                              disabled={item.quantity >= effectiveStock}
                               className="flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-background active:scale-95 disabled:opacity-40 disabled:active:scale-100 transition-all"
                               aria-label="Tambah"
                             >
@@ -190,9 +204,9 @@ export function CartSheet({ onCheckout, freeShippingThreshold, shippingFee }: Ca
                             </button>
                           </div>
                           <div className="flex flex-col items-end">
-                            {hasDiscount && item.product.oldPrice && (
+                            {hasDiscount && effectiveOldPrice && (
                               <span className="text-xs text-muted-foreground line-through leading-none">
-                                {formatIDR(item.product.oldPrice * item.quantity)}
+                                {formatIDR(effectiveOldPrice * item.quantity)}
                               </span>
                             )}
                             <span className="text-sm font-bold text-primary tabular-nums">

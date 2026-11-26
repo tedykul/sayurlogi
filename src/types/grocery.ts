@@ -72,6 +72,9 @@ export interface Category {
 export interface CartItem {
   product: Product;
   quantity: number;
+  /** Selected variant (optional). When set, checkout sends variant.sku
+   *  as item_code to ERPNext so stock updates the correct variant. */
+  variant?: ProductVariant;
 }
 
 export interface CheckoutPayload {

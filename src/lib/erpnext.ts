@@ -78,7 +78,6 @@ export async function fetchProducts(category?: string): Promise<{
   source: "erpnext" | "mock";
 }> {
   if (!isErpnextConfigured()) {
-    // Mock mode — return enriched products (with rating, benefits, etc.)
     const products = category
       ? MOCK_PRODUCTS_ENRICHED.filter((p) => p.category === category)
       : MOCK_PRODUCTS_ENRICHED;
@@ -86,11 +85,13 @@ export async function fetchProducts(category?: string): Promise<{
   }
 
   try {
-    // ERPNext Item list with filters:
-    // - is_sales_item = 1
-    // - disabled = 0
-    // - optional item_group filter
-    const filters: string[] = [["is_sales_item", "=", 1], ["disabled", "=", 0]];
+    // Filter variant_of is not set (exclude variant items — they are
+    // children of template items, fetched separately via fetchItemVariants)
+    const filters: string[] = [
+      ["is_sales_item", "=", 1],
+      ["disabled", "=", 0],
+      ["variant_of", "is", "not set"],
+    ];
     if (category) filters.push(["item_group", "=", category]);
 
     const url = erpUrl("/api/resource/Item", {
@@ -103,6 +104,7 @@ export async function fetchProducts(category?: string): Promise<{
         "stock_uom",
         "image",
         "standard_rate",
+        "has_variants",
       ]),
       filters: JSON.stringify(filters),
       limit_page_length: 200,
@@ -113,17 +115,28 @@ export async function fetchProducts(category?: string): Promise<{
     const json = await res.json();
     const items: any[] = json.data || [];
 
-    // Fetch price for each item. Primary: standard_rate from Item
-    // doctype (directly available, no separate API call). Fall back
-    // to Item Price doctype if standard_rate is 0 or missing.
     const products: Product[] = await Promise.all(
       items.map(async (it) => {
         let price = it.standard_rate ?? 0;
         if (!price || price <= 0) {
-          // Use item_code (not Item.name) for Item Price filter.
           price = (await fetchItemPrice(it.item_code || it.name)) ?? 0;
         }
-        const stock = await fetchItemStock(it.name);
+        let stock = await fetchItemStock(it.name);
+
+        // Phase: Product Variants — if template item, fetch variants
+        let variants: Product["variants"] = [];
+        if (it.has_variants === 1 || it.has_variants === true) {
+          variants = await fetchItemVariants(it.name);
+          if (variants.length > 0) {
+            if (!price || price <= 0) {
+              price = Math.min(...variants.map((v) => v.price).filter((p) => p > 0)) || 0;
+            }
+            if (!stock || stock <= 0) {
+              stock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+            }
+          }
+        }
+
         return {
           id: it.name,
           itemCode: it.item_code || it.name,
@@ -135,6 +148,7 @@ export async function fetchProducts(category?: string): Promise<{
           stock,
           emoji: "🛒",
           image: it.image || undefined,
+          variants,
         };
       })
     );
@@ -146,6 +160,64 @@ export async function fetchProducts(category?: string): Promise<{
       ? MOCK_PRODUCTS_ENRICHED.filter((p) => p.category === category)
       : MOCK_PRODUCTS_ENRICHED;
     return { products, source: "mock" };
+  }
+}
+
+// Phase: Product Variants — fetch all variants of a template item.
+async function fetchItemVariants(
+  templateCode: string
+): Promise<Array<{
+  id: string;
+  name: string;
+  sku: string | null;
+  price: number;
+  oldPrice?: number | null;
+  stock: number;
+  unit: string;
+}>> {
+  try {
+    const url = erpUrl("/api/resource/Item", {
+      fields: JSON.stringify([
+        "name",
+        "item_code",
+        "item_name",
+        "stock_uom",
+        "standard_rate",
+        "description",
+      ]),
+      filters: JSON.stringify([
+        ["variant_of", "=", templateCode],
+        ["disabled", "=", 0],
+      ]),
+      limit_page_length: 50,
+    });
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const variants: any[] = json.data || [];
+
+    return Promise.all(
+      variants.map(async (v) => {
+        let price = v.standard_rate ?? 0;
+        if (!price || price <= 0) {
+          price = (await fetchItemPrice(v.item_code || v.name)) ?? 0;
+        }
+        const stock = await fetchItemStock(v.name);
+        const variantName = v.item_name || v.item_code || v.name;
+        return {
+          id: v.name,
+          name: variantName,
+          sku: v.item_code || v.name,
+          price,
+          oldPrice: null,
+          stock,
+          unit: v.stock_uom || "pcs",
+        };
+      })
+    );
+  } catch (err) {
+    console.warn(`[ERPNext] fetchItemVariants failed for ${templateCode}:`, err);
+    return [];
   }
 }
 

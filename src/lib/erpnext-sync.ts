@@ -53,6 +53,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
     const { products, source: fetchedSource } = await fetchProducts();
     let synced = 0;
     let restoredFromErp = 0;
+    let variantsSynced = 0;
     const syncedItemCodes: string[] = [];
     for (const p of products) {
       if (!p.itemCode) continue;
@@ -95,7 +96,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
       // feedback that an item came back.
       const existing = await db.product.findUnique({
         where: { itemCode: p.itemCode },
-        select: { deletedFromErp: true },
+        select: { deletedFromErp: true, id: true },
       });
       if (existing?.deletedFromErp) {
         restoredFromErp++;
@@ -103,17 +104,54 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
           `[erpnext-sync] Item ${p.itemCode} restored (was deletedFromErp, now back in ERPNext)`
         );
       }
-      await db.product.upsert({
+      const upserted = await db.product.upsert({
         where: { itemCode: p.itemCode },
         create: {
           itemCode: p.itemCode,
           ...erpData,
-          // New products default to published=true so the sync result
-          // is immediately visible on the storefront.
           published: true,
         },
         update: erpData,
       });
+
+      // Phase: Product Variants — sync variants into ProductVariant table
+      if (p.variants && p.variants.length > 0) {
+        const variantSkus: string[] = [];
+        for (const v of p.variants) {
+          if (!v.sku) continue;
+          variantSkus.push(v.sku);
+          await db.productVariant.upsert({
+            where: { productId_sku: { productId: upserted.id, sku: v.sku } },
+            create: {
+              productId: upserted.id,
+              name: v.name,
+              sku: v.sku,
+              price: v.price || 0,
+              oldPrice: v.oldPrice ?? null,
+              stock: v.stock ?? 0,
+              unit: v.unit || p.unit || "pcs",
+            },
+            update: {
+              name: v.name,
+              price: v.price || 0,
+              oldPrice: v.oldPrice ?? null,
+              stock: v.stock ?? 0,
+              unit: v.unit || p.unit || "pcs",
+            },
+          });
+          variantsSynced++;
+        }
+        await db.productVariant.deleteMany({
+          where: {
+            productId: upserted.id,
+            sku: { notIn: variantSkus },
+          },
+        }).catch(() => {});
+      } else {
+        await db.productVariant.deleteMany({
+          where: { productId: upserted.id },
+        }).catch(() => {});
+      }
       synced++;
     }
 
@@ -163,7 +201,7 @@ export async function syncAllFromErpnext(): Promise<SyncResult> {
         synced > 0
           ? `${synced} produk tersinkron dari ${
               fetchedSource === "erpnext" ? "ERPNext" : "mock data"
-            }${unpublished > 0 ? ` (${unpublished} ditandai hapus dari ERPNext)` : ""}${
+            }${variantsSynced > 0 ? ` (${variantsSynced} varian)` : ""}${unpublished > 0 ? ` (${unpublished} ditandai hapus dari ERPNext)` : ""}${
               restoredFromErp > 0 ? ` (${restoredFromErp} dipulihkan)` : ""
             }`
           : "Tidak ada produk untuk disinkron",

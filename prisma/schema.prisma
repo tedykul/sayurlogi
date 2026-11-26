@@ -746,6 +746,7 @@ model ProductVariant {
 
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@unique([productId, sku])
   @@index([productId])
 }
 
